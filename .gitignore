@@ -3,6 +3,13 @@ netket/_version.py
 # AI stuff #
 ############
 CLAUDE.md
+AGENTS.md
+
+#results
+results/
+
+#virtual environment
+.venv/
 
 # Compiled source #
 ###################
