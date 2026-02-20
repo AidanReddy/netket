@@ -63,3 +63,69 @@ def build_haldane_hamiltonian(
     ham = ham.reduce()
     ham = nkx.operator.ParticleNumberConservingFermioperator2nd.from_fermionoperator2nd(ham)
     return graph, hi, ham
+
+
+def build_haldane_one_body_matrix(
+    graph: nk.graph.Honeycomb,
+    Lx: int,
+    Ly: int,
+    t1: float,
+    t2: float,
+    phi: float,
+    m: float,
+) -> np.ndarray:
+    # Written with Codex 02-19-26.
+    n_sites = graph.n_nodes
+    h1 = np.zeros((n_sites, n_sites), dtype=np.complex128)
+
+    for i, j in graph.edges():
+        h1[i, j] += -t1
+        h1[j, i] += -t1
+
+    phase = np.exp(1j * phi)
+    nnn_shifts = ((-1, 1), (0, -1), (1, 0))
+    for x in range(Lx):
+        for y in range(Ly):
+            a = _site_id(graph, x, y, 0, Lx, Ly)
+            b = _site_id(graph, x, y, 1, Lx, Ly)
+            for dx, dy in nnn_shifts:
+                a2 = _site_id(graph, x + dx, y + dy, 0, Lx, Ly)
+                b2 = _site_id(graph, x + dx, y + dy, 1, Lx, Ly)
+                h1[a, a2] += -t2 * phase
+                h1[a2, a] += -t2 * phase.conjugate()
+                h1[b, b2] += -t2 * phase.conjugate()
+                h1[b2, b] += -t2 * phase
+            h1[a, a] += m
+            h1[b, b] += -m
+
+    return h1
+
+
+def noninteracting_slater_orbitals_haldane(
+    graph: nk.graph.Honeycomb,
+    Lx: int,
+    Ly: int,
+    n_fermions: int,
+    t1: float,
+    t2: float,
+    phi: float,
+    m: float,
+) -> np.ndarray:
+    # Written with Codex 02-19-26.
+    h1 = build_haldane_one_body_matrix(
+        graph=graph,
+        Lx=Lx,
+        Ly=Ly,
+        t1=t1,
+        t2=t2,
+        phi=phi,
+        m=m,
+    )
+    n_sites = h1.shape[0]
+    if not (0 <= int(n_fermions) <= int(n_sites)):
+        raise ValueError(
+            f"Invalid n_fermions={n_fermions} for one-body matrix with n_sites={n_sites}."
+        )
+
+    _, eigvecs = np.linalg.eigh(h1)
+    return np.asarray(eigvecs[:, :n_fermions], dtype=np.complex128)
