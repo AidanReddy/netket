@@ -59,38 +59,137 @@ def fold_to_shortest_k(
     return best_k
 
 
-def high_symmetry_points(b1: np.ndarray, b2: np.ndarray) -> tuple[np.ndarray, ...]:
-    # Written with Codex 02-18-26.
+def _first_shell_reciprocal_vectors(
+    b1: np.ndarray,
+    b2: np.ndarray,
+    search_radius: int = 2,
+    shell_tolerance: float = 1.0e-9,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    # Written with Codex 02-20-26.
+    g_vectors = []
+    for n1 in range(-search_radius, search_radius + 1):
+        for n2 in range(-search_radius, search_radius + 1):
+            if n1 == 0 and n2 == 0:
+                continue
+            g_vectors.append(n1 * b1 + n2 * b2)
+
+    g_all = np.asarray(g_vectors, dtype=float)
+    g_norm2 = np.einsum("ij,ij->i", g_all, g_all)
+    min_norm2 = float(np.min(g_norm2))
+    shell_mask = g_norm2 <= (1.0 + shell_tolerance) * min_norm2
+    g_shell = g_all[shell_mask]
+    if g_shell.shape[0] < 6:
+        raise RuntimeError(
+            "Failed to identify the first reciprocal shell; expected at least six vectors."
+        )
+    return g_all, g_norm2, g_shell
+
+
+def _hexagon_vertices_from_reciprocal_basis(
+    b1: np.ndarray,
+    b2: np.ndarray,
+    search_radius: int = 2,
+    tolerance: float = 1.0e-10,
+) -> np.ndarray:
+    # Written with Codex 02-20-26.
+    g_all, g_norm2, g_shell = _first_shell_reciprocal_vectors(
+        b1=b1,
+        b2=b2,
+        search_radius=search_radius,
+    )
+    half_norm2 = 0.5 * g_norm2
+
+    vertices = []
+    n_shell = g_shell.shape[0]
+    for i in range(n_shell - 1):
+        gi = g_shell[i]
+        rhs_i = 0.5 * float(np.dot(gi, gi))
+        for j in range(i + 1, n_shell):
+            gj = g_shell[j]
+            det = gi[0] * gj[1] - gi[1] * gj[0]
+            if abs(det) <= tolerance:
+                continue
+            rhs_j = 0.5 * float(np.dot(gj, gj))
+            mat = np.array([[gi[0], gi[1]], [gj[0], gj[1]]], dtype=float)
+            rhs = np.array([rhs_i, rhs_j], dtype=float)
+            kval = np.linalg.solve(mat, rhs)
+            if np.all((g_all @ kval) <= (half_norm2 + tolerance)):
+                vertices.append(kval)
+
+    if len(vertices) == 0:
+        raise RuntimeError("Failed to construct first-BZ vertices from reciprocal basis.")
+
+    verts = np.asarray(vertices, dtype=float)
+    keys = np.round(verts, decimals=12)
+    _, unique_idx = np.unique(keys, axis=0, return_index=True)
+    verts = verts[np.sort(unique_idx)]
+
+    if verts.shape[0] < 6:
+        raise RuntimeError(
+            f"Expected at least six unique first-BZ vertices, got {verts.shape[0]}."
+        )
+    if verts.shape[0] > 6:
+        radii2 = np.einsum("ij,ij->i", verts, verts)
+        target_r2 = float(np.max(radii2))
+        keep = radii2 >= (1.0 - 1.0e-9) * target_r2
+        verts = verts[keep]
+
+    center = np.mean(verts, axis=0)
+    angles = np.arctan2(verts[:, 1] - center[1], verts[:, 0] - center[0])
+    return verts[np.argsort(angles)]
+
+
+def high_symmetry_points(
+    b1: np.ndarray,
+    b2: np.ndarray,
+    fold: bool = True,
+) -> tuple[np.ndarray, ...]:
+    # Written with Codex 02-20-26.
     gamma = np.array([0.0, 0.0])
-    k_raw = (2.0 * b1 + b2) / 3.0
-    kp_raw = (b1 + 2.0 * b2) / 3.0
-    k = fold_to_shortest_k(k_raw, b1, b2)
-    kp = fold_to_shortest_k(kp_raw, b1, b2)
-    mpt = 0.5 * (k + kp)
+    if fold:
+        verts = _hexagon_vertices_from_reciprocal_basis(b1=b1, b2=b2)
+        mids = 0.5 * (verts + np.roll(verts, -1, axis=0))
+        ref_dir = b1 + b2
+        ref_norm = float(np.linalg.norm(ref_dir))
+        if ref_norm <= 1.0e-14:
+            ref_dir = b1
+            ref_norm = float(np.linalg.norm(ref_dir))
+        if ref_norm <= 1.0e-14:
+            raise ValueError("Reciprocal basis vectors must be linearly independent.")
+        scores = mids @ (ref_dir / ref_norm)
+        idx = int(np.argmax(scores))
+        k = verts[idx]
+        kp = verts[(idx + 1) % verts.shape[0]]
+        mpt = mids[idx]
+    else:
+        # Use an effective reciprocal basis with obtuse mutual angle.
+        # The closed-form K/K' expressions assume this convention.
+        if float(np.dot(b1, b2)) > 0.0:
+            b1_eff = b1
+            b2_eff = -b2
+        else:
+            b1_eff = b1
+            b2_eff = b2
+
+        k = (2.0 * b1_eff + b2_eff) / 3.0
+        kp = (b1_eff + 2.0 * b2_eff) / 3.0
+        mpt = 0.5 * (k + kp)
     return gamma, k, mpt, kp
 
 
 def first_bz_hexagon_vertices(b1: np.ndarray, b2: np.ndarray) -> np.ndarray:
-    # Written with Codex 02-18-26.
-    return np.array(
-        [
-            fold_to_shortest_k((2.0 * b1 + b2) / 3.0, b1, b2),
-            fold_to_shortest_k((b1 + 2.0 * b2) / 3.0, b1, b2),
-            fold_to_shortest_k((-b1 + b2) / 3.0, b1, b2),
-            fold_to_shortest_k(-(2.0 * b1 + b2) / 3.0, b1, b2),
-            fold_to_shortest_k(-(b1 + 2.0 * b2) / 3.0, b1, b2),
-            fold_to_shortest_k((b1 - b2) / 3.0, b1, b2),
-        ]
-    )
+    # Written with Codex 02-20-26.
+    return _hexagon_vertices_from_reciprocal_basis(b1=b1, b2=b2)
 
 
 def k_path_gamma_k_m_kp_gamma(
     n_points_per_segment: int,
     b1: np.ndarray,
     b2: np.ndarray,
+    fold: bool = True,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str]]:
-    # Written with Codex 02-18-26.
-    gamma, k, mpt, kp = high_symmetry_points(b1, b2)
+    # Written with Codex 02-20-26.
+    gamma, k, mpt, kp = high_symmetry_points(b1, b2, fold=fold)
     nodes = [gamma, k, mpt, kp, gamma]
     labels = [r"$\Gamma$", "K", "M", "K'", r"$\Gamma$"]
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from pathlib import Path
 
 import numpy as np
@@ -84,6 +85,74 @@ def exact_reference_ground_state_energy(
         sparse_threshold=sparse_threshold,
     )
     return e_ref, "Exact many-body GS (ED)", "ED (interacting)"
+
+
+def exact_projected_reference_ground_state_energy(
+    Lx: int,
+    Ly: int,
+    n_fermions: int,
+    t1: float,
+    t2: float,
+    phi: float,
+    m: float,
+    V1: float,
+    selected_bands: Sequence[int] = (0,),
+):
+    # Written with Codex 02-20-26.
+    from .bloch_ed import (
+        build_haldane_projected_hamiltonian,
+        solve_projected_all_momentum_sectors,
+    )
+
+    bands = tuple(int(b) for b in selected_bands)
+    if len(bands) == 0:
+        raise ValueError("selected_bands must contain at least one band index.")
+
+    projected_hamiltonian = build_haldane_projected_hamiltonian(
+        Lx=Lx,
+        Ly=Ly,
+        t1=t1,
+        t2=t2,
+        phi=phi,
+        m=m,
+        selected_bands=bands,
+        V1=V1,
+    )
+    sector_results = solve_projected_all_momentum_sectors(
+        projected_hamiltonian=projected_hamiltonian,
+        n_particles=n_fermions,
+        n_eigs=1,
+        use_sparse=True,
+    )
+
+    e0 = np.inf
+    e0_sector = None
+    for sector, sector_data in sector_results.items():
+        eigvals = np.asarray(sector_data["eigenvalues"])
+        if eigvals.size == 0:
+            continue
+        e_sector = float(np.real(eigvals[0]))
+        if e_sector < e0:
+            e0 = e_sector
+            e0_sector = (int(sector[0]), int(sector[1]))
+
+    if e0_sector is None:
+        raise RuntimeError("Projected ED returned no non-empty momentum sectors.")
+
+    if bands == (0,):
+        label = "1 Band ED"
+        method = (
+            "ED in projected lowest Bloch band "
+            f"(sector={e0_sector})"
+        )
+    else:
+        label = f"{len(bands)} Band ED"
+        method = (
+            f"ED in projected Bloch bands {list(bands)} "
+            f"(sector={e0_sector})"
+        )
+
+    return float(e0), label, method, e0_sector
 
 
 def tree_l2_norm(tree) -> float:
