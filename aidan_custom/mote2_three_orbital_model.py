@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import numpy as np
 import netket as nk
 import netket.experimental as nkx
@@ -71,8 +73,8 @@ def _graph_edges_from_real_space_terms(
 
 
 def build_mote2_three_orbital_hamiltonian(
-    Lx: int,
-    Ly: int,
+    Lx: int | None = None,
+    Ly: int | None = None,
     delta: float = 0.0,
     ez: float = 0.0,
     t_th1: float = 1.0,
@@ -84,6 +86,8 @@ def build_mote2_three_orbital_hamiltonian(
     ph_conj: bool = False,
     V1: float = 0.0,
     n_fermions: int | None = None,
+    supercell_basis: Sequence[Sequence[int]] | None = None,
+    supercell_matrix: Sequence[Sequence[int]] | None = None,
     operator_cutoff: float = 1e-12,
     graph_cutoff: float = 1e-12,
 ):
@@ -101,6 +105,8 @@ def build_mote2_three_orbital_hamiltonian(
         a_m=a_m,
         ph_conj=ph_conj,
         V1=V1,
+        supercell_basis=supercell_basis,
+        supercell_matrix=supercell_matrix,
     )
     del lattice
 
@@ -152,9 +158,9 @@ def build_mote2_three_orbital_hamiltonian(
 
 
 def noninteracting_slater_orbitals_mote2_three_orbital(
-    Lx: int,
-    Ly: int,
-    n_fermions: int,
+    Lx: int | None = None,
+    Ly: int | None = None,
+    n_fermions: int | None = None,
     delta: float = 0.0,
     ez: float = 0.0,
     t_th1: float = 1.0,
@@ -164,6 +170,8 @@ def noninteracting_slater_orbitals_mote2_three_orbital(
     t_tt1: float = 0.0,
     a_m: float = 1.0,
     ph_conj: bool = False,
+    supercell_basis: Sequence[Sequence[int]] | None = None,
+    supercell_matrix: Sequence[Sequence[int]] | None = None,
 ) -> np.ndarray:
     # Written with Codex 02-20-26.
     _, one_body_real_space, _ = build_mote2_three_orbital_real_space_terms(
@@ -179,9 +187,13 @@ def noninteracting_slater_orbitals_mote2_three_orbital(
         a_m=a_m,
         ph_conj=ph_conj,
         V1=0.0,
+        supercell_basis=supercell_basis,
+        supercell_matrix=supercell_matrix,
     )
     one_body_real_space = np.asarray(one_body_real_space, dtype=np.complex128)
 
+    if n_fermions is None:
+        raise ValueError("n_fermions must be specified.")
     n_sites = int(one_body_real_space.shape[0])
     n_fermions = _validate_n_fermions(n_sites=n_sites, n_fermions=n_fermions)
 

@@ -1,0 +1,38 @@
+         19441662 function calls (19441646 primitive calls) in 9.875 seconds
+
+   Ordered by: cumulative time
+   List reduced from 189 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.001    0.001    9.875    9.875 /home/areddy/netket/results/lx4_ly4_nf5_t1_1.00_t2_-0.31_m_0.00_phi_0.65_V1_1.00_bloch_ed_sector_threads_20260221_164659/run_sector_thread_benchmark.py:54(run_variant)
+        1    0.000    0.000    9.873    9.873 /home/areddy/netket/aidan_custom/bloch_ed/workflow.py:125(solve_projected_all_momentum_sectors)
+       16    0.000    0.000    9.727    0.608 /home/areddy/netket/aidan_custom/bloch_ed/workflow.py:35(_solve_sector_from_precomputed_basis)
+       16    0.000    0.000    9.727    0.608 /home/areddy/netket/aidan_custom/bloch_ed/workflow.py:59(solve_projected_sector)
+       16    0.005    0.000    9.574    0.598 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:753(build_many_body_hamiltonian_sparse)
+       16    8.139    0.509    9.554    0.597 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:629(_accumulate_many_body_entries)
+ 13403728    0.865    0.000    0.865    0.000 {method 'bit_count' of 'int' objects}
+  5857516    0.524    0.000    0.524    0.000 {method 'get' of 'dict' objects}
+       16    0.000    0.000    0.153    0.010 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:832(diagonalize_many_body_hamiltonian)
+       16    0.000    0.000    0.152    0.010 /home/areddy/netket/.venv/lib/python3.11/site-packages/scipy/sparse/linalg/_eigen/arpack/arpack.py:1362(eigsh)
+       16    0.001    0.000    0.152    0.010 /home/areddy/netket/.venv/lib/python3.11/site-packages/scipy/sparse/linalg/_eigen/arpack/arpack.py:1105(eigs)
+        1    0.001    0.001    0.144    0.144 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:566(prepare_many_body_operator_data)
+     1022    0.079    0.000    0.143    0.000 /home/areddy/netket/.venv/lib/python3.11/site-packages/scipy/sparse/linalg/_eigen/arpack/arpack.py:728(iterate)
+        1    0.044    0.044    0.075    0.075 /home/areddy/netket/aidan_custom/bloch_ed/interactions.py:121(extract_nonzero_quartic_terms)
+     1006    0.003    0.000    0.063    0.000 /home/areddy/netket/.venv/lib/python3.11/site-packages/scipy/sparse/linalg/_interface.py:227(matvec)
+     1006    0.001    0.000    0.060    0.000 /home/areddy/netket/.venv/lib/python3.11/site-packages/scipy/sparse/linalg/_interface.py:215(_matvec)
+     1006    0.003    0.000    0.058    0.000 /home/areddy/netket/.venv/lib/python3.11/site-packages/scipy/sparse/linalg/_interface.py:333(matmat)
+     1006    0.001    0.000    0.052    0.000 /home/areddy/netket/.venv/lib/python3.11/site-packages/scipy/sparse/linalg/_interface.py:823(_matmat)
+     1006    0.001    0.000    0.051    0.000 /home/areddy/netket/.venv/lib/python3.11/site-packages/scipy/sparse/_base.py:584(dot)
+     1006    0.001    0.000    0.047    0.000 /home/areddy/netket/.venv/lib/python3.11/site-packages/scipy/sparse/_base.py:904(__matmul__)
+        1    0.041    0.041    0.043    0.043 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:537(_group_quartic_terms)
+     1006    0.003    0.000    0.042    0.000 /home/areddy/netket/.venv/lib/python3.11/site-packages/scipy/sparse/_base.py:773(_matmul_dispatch)
+     1006    0.004    0.000    0.037    0.000 /home/areddy/netket/.venv/lib/python3.11/site-packages/scipy/sparse/_compressed.py:387(_matmul_vector)
+     1006    0.029    0.000    0.029    0.000 {built-in method scipy.sparse._sparsetools.csr_matvec}
+        1    0.029    0.029    0.029    0.029 /home/areddy/netket/aidan_custom/bloch_ed/interactions.py:10(make_quartic_term_list)
+        1    0.025    0.025    0.025    0.025 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:123(_build_two_body_compact_arrays)
+       16    0.007    0.000    0.025    0.002 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:663(<listcomp>)
+    26208    0.016    0.000    0.018    0.000 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:355(iter_occupied_orbitals)
+   112/96    0.001    0.000    0.007    0.000 /home/areddy/netket/.venv/lib/python3.11/site-packages/scipy/sparse/_compressed.py:30(__init__)
+       16    0.007    0.000    0.007    0.000 /home/areddy/netket/.venv/lib/python3.11/site-packages/scipy/sparse/linalg/_eigen/arpack/arpack.py:771(extract)
+
+

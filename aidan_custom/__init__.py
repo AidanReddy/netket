@@ -13,6 +13,7 @@ __all__ = [
     "ComplexParticleOrbitalProductHead",
     "DELTA_VECTORS",
     "LogBoseFormerProduct",
+    "LogPsiFormer",
     "LogSlaterBoseFormer",
     "LogSlaterDeterminant",
     "LogSlaterJastrow",
@@ -44,6 +45,7 @@ __all__ = [
     "high_symmetry_points",
     "k_path_gamma_k_m_kp_gamma",
     "log_optimization_diagnostics",
+    "make_optimization_callback",
     "make_supercell_reciprocal_vectors",
     "make_supercell_reciprocal_vectors_from_graph",
     "make_translation_equivariant_pair_data",
@@ -61,6 +63,7 @@ __all__ = [
     "mote2_three_orbital_parameters_from_t123",
     "mote2_three_orbital_qgt",
     "mote2_three_orbital_reciprocal_vectors",
+    "NeuralOrbitalHead",
     "noninteracting_slater_orbitals_mote2_three_orbital",
     "pair_correlation_cartesian",
     "qgt_from_bloch_hamiltonian",
@@ -104,6 +107,7 @@ _NAME_TO_MODULE_ATTR: dict[str, tuple[str, str]] = {
     "ComplexLogCoshOutputHead": (".models", "ComplexLogCoshOutputHead"),
     "ComplexParticleOrbitalProductHead": (".models", "ComplexParticleOrbitalProductHead"),
     "LogBoseFormerProduct": (".models", "LogBoseFormerProduct"),
+    "LogPsiFormer": (".models", "LogPsiFormer"),
     "LogSlaterBoseFormer": (".models", "LogSlaterBoseFormer"),
     "LogSlaterDeterminant": (".models", "LogSlaterDeterminant"),
     "LogSlaterJastrow": (".models", "LogSlaterJastrow"),
@@ -173,6 +177,7 @@ _NAME_TO_MODULE_ATTR: dict[str, tuple[str, str]] = {
         ".mote2_three_orbital",
         "mote2_three_orbital_chern_numbers",
     ),
+    "NeuralOrbitalHead": (".models", "NeuralOrbitalHead"),
     "noninteracting_slater_orbitals_mote2_three_orbital": (
         ".mote2_three_orbital_model",
         "noninteracting_slater_orbitals_mote2_three_orbital",
@@ -192,6 +197,7 @@ _NAME_TO_MODULE_ATTR: dict[str, tuple[str, str]] = {
     ),
     "exact_reference_ground_state_energy": (".optimization", "exact_reference_ground_state_energy"),
     "log_optimization_diagnostics": (".optimization", "log_optimization_diagnostics"),
+    "make_optimization_callback": (".optimization", "make_optimization_callback"),
     "tree_l2_norm": (".optimization", "tree_l2_norm"),
 }
 

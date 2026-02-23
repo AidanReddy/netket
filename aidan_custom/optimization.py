@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -10,6 +11,55 @@ from scipy.sparse.linalg import eigsh
 
 from .bandstructure import eigenvalues_at_k
 from .geometry import PRIMITIVE_A1, PRIMITIVE_A2, reciprocal_vectors
+
+
+def _read_nonnegative_int_env(var_name: str, default: int) -> int:
+    # Written with Codex 02-21-26.
+    raw = os.environ.get(var_name, str(default))
+    try:
+        value = int(raw)
+    except ValueError:
+        value = int(default)
+    return max(value, 0)
+
+
+_AIDAN_LOG_MEMORY_EVERY = _read_nonnegative_int_env("AIDAN_LOG_MEMORY_EVERY", 1)
+
+
+def _append_device_memory_stats(log_data: dict) -> None:
+    # Written with Codex 02-21-26.
+    try:
+        stats = jax.devices()[0].memory_stats()
+    except Exception:
+        return
+    if not stats:
+        return
+
+    key_map = {
+        "bytes_in_use": "DeviceBytesInUse",
+        "peak_bytes_in_use": "DevicePeakBytesInUse",
+        "pool_bytes": "DevicePoolBytes",
+        "peak_pool_bytes": "DevicePeakPoolBytes",
+        "bytes_limit": "DeviceBytesLimit",
+        "num_allocs": "DeviceNumAllocs",
+    }
+    for stat_key, log_key in key_map.items():
+        value = stats.get(stat_key, None)
+        if value is None:
+            continue
+        log_data[log_key] = float(value)
+
+    for bytes_key, gib_key in (
+        ("bytes_in_use", "DeviceBytesInUseGiB"),
+        ("peak_bytes_in_use", "DevicePeakBytesInUseGiB"),
+        ("pool_bytes", "DevicePoolGiB"),
+        ("peak_pool_bytes", "DevicePeakPoolGiB"),
+        ("bytes_limit", "DeviceBytesLimitGiB"),
+    ):
+        value = stats.get(bytes_key, None)
+        if value is None:
+            continue
+        log_data[gib_key] = float(value) / (1024.0**3)
 
 
 def exact_manybody_ground_state_energy(hamiltonian, sparse_threshold: int = 2000) -> float:
@@ -170,11 +220,36 @@ def tree_l2_norm(tree) -> float:
 
 def log_optimization_diagnostics(step: int, log_data: dict, driver) -> bool:
     # Written with Codex 02-18-26.
-    del step
     dp = getattr(driver, "_dp", None)
     if dp is not None:
         log_data["UpdateNormL2"] = tree_l2_norm(dp)
+    if _AIDAN_LOG_MEMORY_EVERY > 0 and int(step) % _AIDAN_LOG_MEMORY_EVERY == 0:
+        _append_device_memory_stats(log_data)
     return True
+
+
+def make_optimization_callback(job_dir):
+    """Returns a callback that logs optimization diagnostics and GPU memory to job_dir/gpu_mem.log."""
+    gpu_mem_log_path = Path(job_dir) / "gpu_mem.log"
+    _log_file = open(gpu_mem_log_path, "a")  # noqa: SIM115
+    _log_file.write("step\tbytes_in_use_GiB\tpeak_bytes_in_use_GiB\tbytes_limit_GiB\n")
+    _log_file.flush()
+
+    def _callback(step: int, log_data: dict, driver) -> bool:
+        dp = getattr(driver, "_dp", None)
+        if dp is not None:
+            log_data["UpdateNormL2"] = tree_l2_norm(dp)
+        if _AIDAN_LOG_MEMORY_EVERY > 0 and int(step) % _AIDAN_LOG_MEMORY_EVERY == 0:
+            _append_device_memory_stats(log_data)
+            in_use_gib = log_data.get("DeviceBytesInUseGiB", None)
+            if in_use_gib is not None:
+                peak_gib = log_data.get("DevicePeakBytesInUseGiB", float("nan"))
+                limit_gib = log_data.get("DeviceBytesLimitGiB", float("nan"))
+                _log_file.write(f"{step}\t{in_use_gib:.4f}\t{peak_gib:.4f}\t{limit_gib:.4f}\n")
+                _log_file.flush()
+        return True
+
+    return _callback
 
 
 def _series_to_float_array(values) -> np.ndarray:

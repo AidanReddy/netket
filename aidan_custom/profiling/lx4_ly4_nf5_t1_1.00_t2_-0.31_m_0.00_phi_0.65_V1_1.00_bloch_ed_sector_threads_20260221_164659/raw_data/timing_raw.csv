@@ -1,0 +1,9 @@
+variant,repeat,seconds
+sequential_sparse,0,4.364973779767752
+sequential_sparse,1,4.284332863986492
+sequential_sparse,2,4.297746444121003
+sequential_sparse,3,4.311042843386531
+threaded_sparse,0,7.644236698746681
+threaded_sparse,1,7.065083874389529
+threaded_sparse,2,7.334406059235334
+threaded_sparse,3,7.400043869391084

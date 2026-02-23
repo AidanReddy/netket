@@ -5,9 +5,6 @@ netket/_version.py
 CLAUDE.md
 AGENTS.md
 
-#results
-results/
-
 #virtual environment
 .venv/
 

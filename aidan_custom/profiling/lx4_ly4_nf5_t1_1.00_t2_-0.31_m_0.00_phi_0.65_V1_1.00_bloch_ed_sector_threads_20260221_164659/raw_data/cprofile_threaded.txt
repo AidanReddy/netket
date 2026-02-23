@@ -1,0 +1,38 @@
+         56550 function calls in 8.143 seconds
+
+   Ordered by: cumulative time
+   List reduced from 108 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.001    0.001    8.143    8.143 /home/areddy/netket/results/lx4_ly4_nf5_t1_1.00_t2_-0.31_m_0.00_phi_0.65_V1_1.00_bloch_ed_sector_threads_20260221_164659/run_sector_thread_benchmark.py:54(run_variant)
+        1    0.000    0.000    8.142    8.142 /home/areddy/netket/aidan_custom/bloch_ed/workflow.py:125(solve_projected_all_momentum_sectors)
+       34    0.000    0.000    7.953    0.234 /usr/local/anaconda3/lib/python3.11/threading.py:295(wait)
+      112    7.953    0.071    7.953    0.071 {method 'acquire' of '_thread.lock' objects}
+       16    0.000    0.000    7.881    0.493 /usr/local/anaconda3/lib/python3.11/concurrent/futures/_base.py:428(result)
+        1    0.001    0.001    0.187    0.187 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:566(prepare_many_body_operator_data)
+        1    0.076    0.076    0.118    0.118 /home/areddy/netket/aidan_custom/bloch_ed/interactions.py:121(extract_nonzero_quartic_terms)
+        1    0.000    0.000    0.072    0.072 /home/areddy/netket/aidan_custom/bloch_ed/workflow.py:229(<dictcomp>)
+       16    0.000    0.000    0.072    0.005 /usr/local/anaconda3/lib/python3.11/concurrent/futures/thread.py:161(submit)
+       16    0.000    0.000    0.072    0.005 /usr/local/anaconda3/lib/python3.11/concurrent/futures/thread.py:180(_adjust_thread_count)
+        4    0.000    0.000    0.072    0.018 /usr/local/anaconda3/lib/python3.11/threading.py:945(start)
+        4    0.000    0.000    0.071    0.018 /usr/local/anaconda3/lib/python3.11/threading.py:611(wait)
+        1    0.041    0.041    0.042    0.042 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:537(_group_quartic_terms)
+        1    0.038    0.038    0.038    0.038 /home/areddy/netket/aidan_custom/bloch_ed/interactions.py:10(make_quartic_term_list)
+        1    0.025    0.025    0.025    0.025 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:123(_build_two_body_compact_arrays)
+    54368    0.005    0.000    0.005    0.000 {method 'append' of 'list' objects}
+       16    0.000    0.000    0.001    0.000 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:463(build_fock_basis)
+       16    0.001    0.000    0.001    0.000 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:514(<dictcomp>)
+        7    0.000    0.000    0.001    0.000 /home/areddy/netket/.venv/lib/python3.11/site-packages/numpy/_core/fromnumeric.py:51(_wrapfunc)
+        2    0.000    0.000    0.001    0.000 /home/areddy/netket/.venv/lib/python3.11/site-packages/numpy/_core/numeric.py:625(argwhere)
+        2    0.000    0.000    0.000    0.000 /home/areddy/netket/.venv/lib/python3.11/site-packages/numpy/_core/fromnumeric.py:2018(nonzero)
+        2    0.000    0.000    0.000    0.000 {method 'nonzero' of 'numpy.ndarray' objects}
+       16    0.000    0.000    0.000    0.000 /usr/local/anaconda3/lib/python3.11/threading.py:440(acquire)
+        1    0.000    0.000    0.000    0.000 /usr/local/anaconda3/lib/python3.11/concurrent/futures/_base.py:646(__exit__)
+        1    0.000    0.000    0.000    0.000 /usr/local/anaconda3/lib/python3.11/concurrent/futures/thread.py:216(shutdown)
+        4    0.000    0.000    0.000    0.000 /usr/local/anaconda3/lib/python3.11/threading.py:1087(join)
+        1    0.000    0.000    0.000    0.000 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:553(_group_quartic_annihilation_targets)
+        4    0.000    0.000    0.000    0.000 /usr/local/anaconda3/lib/python3.11/threading.py:1125(_wait_for_tstate_lock)
+        4    0.000    0.000    0.000    0.000 {built-in method _thread.start_new_thread}
+        1    0.000    0.000    0.000    0.000 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:525(_group_one_body_terms)
+
+

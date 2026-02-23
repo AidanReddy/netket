@@ -14,6 +14,9 @@ class LatticeEmbedding2D:
     n_orbitals_per_cell: int
     site_index: np.ndarray
     site_to_cell: np.ndarray
+    cell_to_bravais: np.ndarray
+    supercell_matrix: np.ndarray
+    kpoint_coefficients: np.ndarray
 
 
 @dataclass(frozen=True)

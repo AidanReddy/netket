@@ -1,0 +1,173 @@
+Building shared projected basis and Hamiltonian...
+Lattice shape: Lx=3, Ly=9
+Projected orbitals: 27
+Precomputing momentum-sector basis cache...
+Parallel sector solves: workers=8, sectors=27
+Traceback (most recent call last):
+  File "/home/areddy/netket/results/mote2_three_orbital/ED_scm_3_6_m3_3_nf9_delta_5.43_ez_0.00_tth1_1.00_thh1_0.47_tth2_-0.07_thh3_0.04_ttt1_-0.04_V1_1.00_lowest_band_20260221/run_script.py", line 345, in main
+    for fut in as_completed(future_map):
+  File "/usr/local/anaconda3/lib/python3.11/concurrent/futures/_base.py", line 243, in as_completed
+    waiter.event.wait(wait_timeout)
+  File "/usr/local/anaconda3/lib/python3.11/threading.py", line 629, in wait
+    signaled = self._cond.wait(timeout)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/anaconda3/lib/python3.11/threading.py", line 327, in wait
+    waiter.acquire()
+KeyboardInterrupt
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/areddy/netket/results/mote2_three_orbital/ED_scm_3_6_m3_3_nf9_delta_5.43_ez_0.00_tth1_1.00_thh1_0.47_tth2_-0.07_thh3_0.04_ttt1_-0.04_V1_1.00_lowest_band_20260221/run_script.py", line 574, in <module>
+    main()
+  File "/home/areddy/netket/results/mote2_three_orbital/ED_scm_3_6_m3_3_nf9_delta_5.43_ez_0.00_tth1_1.00_thh1_0.47_tth2_-0.07_thh3_0.04_ttt1_-0.04_V1_1.00_lowest_band_20260221/run_script.py", line 329, in main
+    with ProcessPoolExecutor(
+  File "/usr/local/anaconda3/lib/python3.11/concurrent/futures/_base.py", line 647, in __exit__
+    self.shutdown(wait=True)
+  File "/usr/local/anaconda3/lib/python3.11/concurrent/futures/process.py", line 851, in shutdown
+    self._executor_manager_thread.join()
+  File "/usr/local/anaconda3/lib/python3.11/threading.py", line 1119, in join
+    self._wait_for_tstate_lock()
+  File "/usr/local/anaconda3/lib/python3.11/threading.py", line 1139, in _wait_for_tstate_lock
+    if lock.acquire(block, timeout):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt
+Exception ignored in atexit callback: <function _exit_function at 0x7fc08cefd260>
+Traceback (most recent call last):
+  File "/usr/local/anaconda3/lib/python3.11/multiprocessing/util.py", line 357, in _exit_function
+    p.join()
+  File "/usr/local/anaconda3/lib/python3.11/multiprocessing/process.py", line 149, in join
+    res = self._popen.wait(timeout)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/anaconda3/lib/python3.11/multiprocessing/popen_fork.py", line 43, in wait
+    return self.poll(os.WNOHANG if timeout == 0.0 else 0)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/anaconda3/lib/python3.11/multiprocessing/popen_fork.py", line 27, in poll
+    pid, sts = os.waitpid(self.pid, flag)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt: 
+Building shared projected basis and Hamiltonian...
+Lattice shape: Lx=3, Ly=9
+Projected orbitals: 27
+Precomputing momentum-sector basis cache...
+Parallel sector solves: workers=8, sectors=27
+  completed 1/27: sector=(0, 4) dim=173583 solver=sparse
+  completed 2/27: sector=(0, 5) dim=173583 solver=sparse
+  completed 3/27: sector=(0, 0) dim=173613 solver=sparse
+  completed 4/27: sector=(0, 2) dim=173583 solver=sparse
+  completed 5/27: sector=(0, 3) dim=173610 solver=sparse
+  completed 6/27: sector=(0, 6) dim=173610 solver=sparse
+  completed 7/27: sector=(0, 1) dim=173583 solver=sparse
+  completed 8/27: sector=(0, 7) dim=173583 solver=sparse
+  completed 9/27: sector=(0, 8) dim=173583 solver=sparse
+  completed 10/27: sector=(1, 1) dim=173583 solver=sparse
+  completed 11/27: sector=(1, 0) dim=173583 solver=sparse
+  completed 12/27: sector=(1, 2) dim=173583 solver=sparse
+  completed 13/27: sector=(1, 3) dim=173583 solver=sparse
+  completed 14/27: sector=(1, 5) dim=173583 solver=sparse
+  completed 15/27: sector=(1, 4) dim=173583 solver=sparse
+  completed 16/27: sector=(1, 6) dim=173583 solver=sparse
+  completed 17/27: sector=(1, 7) dim=173583 solver=sparse
+  completed 18/27: sector=(2, 0) dim=173583 solver=sparse
+  completed 19/27: sector=(2, 4) dim=173583 solver=sparse
+  completed 20/27: sector=(1, 8) dim=173583 solver=sparse
+  completed 21/27: sector=(2, 3) dim=173583 solver=sparse
+  completed 22/27: sector=(2, 2) dim=173583 solver=sparse
+  completed 23/27: sector=(2, 1) dim=173583 solver=sparse
+  completed 24/27: sector=(2, 5) dim=173583 solver=sparse
+Traceback (most recent call last):
+  File "/home/areddy/netket/results/mote2_three_orbital/ED_scm_3_6_m3_3_nf9_delta_5.43_ez_0.00_tth1_1.00_thh1_0.47_tth2_-0.07_thh3_0.04_ttt1_-0.04_V1_1.00_lowest_band_20260221/run_script.py", line 574, in <module>
+    main()
+  File "/home/areddy/netket/results/mote2_three_orbital/ED_scm_3_6_m3_3_nf9_delta_5.43_ez_0.00_tth1_1.00_thh1_0.47_tth2_-0.07_thh3_0.04_ttt1_-0.04_V1_1.00_lowest_band_20260221/run_script.py", line 347, in main
+    result = fut.result()
+             ^^^^^^^^^^^^
+  File "/usr/local/anaconda3/lib/python3.11/concurrent/futures/_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/anaconda3/lib/python3.11/concurrent/futures/_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+Building shared projected basis and Hamiltonian...
+Lattice shape: Lx=3, Ly=9
+Projected orbitals: 27
+Preparing many-body operator data (Numba compact arrays)...
+Precomputing momentum-sector basis cache...
+Parallel sector solves: workers=8, sectors=27
+  completed 1/27: sector=(0, 4) dim=173583 solver=sparse
+  completed 2/27: sector=(0, 5) dim=173583 solver=sparse
+  completed 3/27: sector=(0, 0) dim=173613 solver=sparse
+  completed 4/27: sector=(0, 6) dim=173610 solver=sparse
+  completed 5/27: sector=(0, 3) dim=173610 solver=sparse
+  completed 6/27: sector=(0, 2) dim=173583 solver=sparse
+  completed 7/27: sector=(0, 1) dim=173583 solver=sparse
+  completed 8/27: sector=(0, 7) dim=173583 solver=sparse
+  completed 9/27: sector=(1, 1) dim=173583 solver=sparse
+  completed 10/27: sector=(1, 5) dim=173583 solver=sparse
+  completed 11/27: sector=(1, 0) dim=173583 solver=sparse
+  completed 12/27: sector=(0, 8) dim=173583 solver=sparse
+  completed 13/27: sector=(1, 2) dim=173583 solver=sparse
+  completed 14/27: sector=(1, 4) dim=173583 solver=sparse
+  completed 15/27: sector=(1, 3) dim=173583 solver=sparse
+  completed 16/27: sector=(1, 6) dim=173583 solver=sparse
+  completed 17/27: sector=(1, 7) dim=173583 solver=sparse
+  completed 18/27: sector=(2, 4) dim=173583 solver=sparse
+  completed 19/27: sector=(1, 8) dim=173583 solver=sparse
+  completed 20/27: sector=(2, 0) dim=173583 solver=sparse
+  completed 21/27: sector=(2, 1) dim=173583 solver=sparse
+  completed 22/27: sector=(2, 2) dim=173583 solver=sparse
+  completed 23/27: sector=(2, 3) dim=173583 solver=sparse
+  completed 24/27: sector=(2, 5) dim=173583 solver=sparse
+  completed 25/27: sector=(2, 6) dim=173583 solver=sparse
+  completed 26/27: sector=(2, 7) dim=173583 solver=sparse
+  completed 27/27: sector=(2, 8) dim=173583 solver=sparse
+Global ground state sector from spectrum scan: (0, 0), energy=-13.627623097367
+Solved ground-state eigenvector in sector (0, 0): dim=173613 solver=sparse energy=-13.627623097367
+Traceback (most recent call last):
+  File "/home/areddy/netket/results/mote2_three_orbital/ED_scm_3_6_m3_3_nf9_delta_5.43_ez_0.00_tth1_1.00_thh1_0.47_tth2_-0.07_thh3_0.04_ttt1_-0.04_V1_1.00_lowest_band_20260221/run_script.py", line 597, in <module>
+    main()
+  File "/home/areddy/netket/results/mote2_three_orbital/ED_scm_3_6_m3_3_nf9_delta_5.43_ez_0.00_tth1_1.00_thh1_0.47_tth2_-0.07_thh3_0.04_ttt1_-0.04_V1_1.00_lowest_band_20260221/run_script.py", line 460, in main
+    observables = ordinary_density_observables_from_projected_state(
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/areddy/netket/aidan_custom/bloch_ed/observables.py", line 123, in ordinary_density_observables_from_projected_state
+    site_cfg, psi_site = expand_projected_state_to_site_basis(
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/areddy/netket/aidan_custom/bloch_ed/observables.py", line 69, in expand_projected_state_to_site_basis
+    raise ValueError(
+ValueError: Site-basis expansion is too large: C(81, 9)=260887834350 > max_site_basis=2000000.
+Building shared projected basis and Hamiltonian...
+Lattice shape: Lx=3, Ly=9
+Projected orbitals: 27
+Preparing many-body operator data (Numba compact arrays)...
+Precomputing momentum-sector basis cache...
+Parallel sector solves: workers=8, sectors=27
+  completed 1/27: sector=(0, 4) dim=173583 solver=sparse
+  completed 2/27: sector=(0, 5) dim=173583 solver=sparse
+  completed 3/27: sector=(0, 0) dim=173613 solver=sparse
+  completed 4/27: sector=(0, 6) dim=173610 solver=sparse
+  completed 5/27: sector=(0, 3) dim=173610 solver=sparse
+  completed 6/27: sector=(0, 2) dim=173583 solver=sparse
+  completed 7/27: sector=(0, 1) dim=173583 solver=sparse
+  completed 8/27: sector=(0, 7) dim=173583 solver=sparse
+  completed 9/27: sector=(1, 1) dim=173583 solver=sparse
+  completed 10/27: sector=(1, 5) dim=173583 solver=sparse
+  completed 11/27: sector=(0, 8) dim=173583 solver=sparse
+  completed 12/27: sector=(1, 2) dim=173583 solver=sparse
+  completed 13/27: sector=(1, 0) dim=173583 solver=sparse
+  completed 14/27: sector=(1, 3) dim=173583 solver=sparse
+  completed 15/27: sector=(1, 4) dim=173583 solver=sparse
+  completed 16/27: sector=(1, 6) dim=173583 solver=sparse
+  completed 17/27: sector=(1, 7) dim=173583 solver=sparse
+  completed 18/27: sector=(1, 8) dim=173583 solver=sparse
+  completed 19/27: sector=(2, 0) dim=173583 solver=sparse
+  completed 20/27: sector=(2, 4) dim=173583 solver=sparse
+  completed 21/27: sector=(2, 1) dim=173583 solver=sparse
+  completed 22/27: sector=(2, 3) dim=173583 solver=sparse
+  completed 23/27: sector=(2, 2) dim=173583 solver=sparse
+  completed 24/27: sector=(2, 5) dim=173583 solver=sparse
+  completed 25/27: sector=(2, 6) dim=173583 solver=sparse
+  completed 26/27: sector=(2, 7) dim=173583 solver=sparse
+  completed 27/27: sector=(2, 8) dim=173583 solver=sparse
+Global ground state sector from spectrum scan: (0, 0), energy=-13.627623097367
+Solved ground-state eigenvector in sector (0, 0): dim=173613 solver=sparse energy=-13.627623097367
+Done. Outputs saved under:
+  /home/areddy/netket/results/mote2_three_orbital/ED/ED_scm_3_6_m3_3_nf9_delta_5.43_ez_0.00_tth1_1.00_thh1_0.47_tth2_-0.07_thh3_0.04_ttt1_-0.04_V1_1.00_lowest_band_20260221

@@ -12,6 +12,9 @@ def build_lattice_embedding_2d(
     Ly: int,
     n_orbitals_per_cell: int,
     site_index_fn: Callable[[int, int, int], int],
+    cell_to_bravais: np.ndarray | None = None,
+    supercell_matrix: np.ndarray | None = None,
+    kpoint_coefficients: np.ndarray | None = None,
 ) -> LatticeEmbedding2D:
     # Written with Codex 02-19-26.
     if Lx <= 0 or Ly <= 0:
@@ -42,12 +45,53 @@ def build_lattice_embedding_2d(
                 site_to_cell[site, 1] = y
                 site_to_cell[site, 2] = orb
 
+    if cell_to_bravais is None:
+        cell_to_bravais_arr = np.empty((Lx, Ly, 2), dtype=np.int64)
+        for x in range(Lx):
+            for y in range(Ly):
+                cell_to_bravais_arr[x, y, 0] = x
+                cell_to_bravais_arr[x, y, 1] = y
+    else:
+        cell_to_bravais_arr = np.asarray(cell_to_bravais, dtype=np.int64)
+        if cell_to_bravais_arr.shape != (Lx, Ly, 2):
+            raise ValueError(
+                "cell_to_bravais must have shape "
+                f"({Lx}, {Ly}, 2), got {cell_to_bravais_arr.shape}."
+            )
+
+    if supercell_matrix is None:
+        supercell_matrix_arr = np.array([[Lx, 0], [0, Ly]], dtype=np.int64)
+    else:
+        supercell_matrix_arr = np.asarray(supercell_matrix, dtype=np.int64)
+        if supercell_matrix_arr.shape != (2, 2):
+            raise ValueError(
+                "supercell_matrix must have shape (2, 2), "
+                f"got {supercell_matrix_arr.shape}."
+            )
+
+    if kpoint_coefficients is None:
+        kpoint_coefficients_arr = np.empty((Lx, Ly, 2), dtype=np.float64)
+        for kx in range(Lx):
+            for ky in range(Ly):
+                kpoint_coefficients_arr[kx, ky, 0] = float(kx) / float(Lx)
+                kpoint_coefficients_arr[kx, ky, 1] = float(ky) / float(Ly)
+    else:
+        kpoint_coefficients_arr = np.asarray(kpoint_coefficients, dtype=np.float64)
+        if kpoint_coefficients_arr.shape != (Lx, Ly, 2):
+            raise ValueError(
+                "kpoint_coefficients must have shape "
+                f"({Lx}, {Ly}, 2), got {kpoint_coefficients_arr.shape}."
+            )
+
     return LatticeEmbedding2D(
         Lx=Lx,
         Ly=Ly,
         n_orbitals_per_cell=n_orbitals_per_cell,
         site_index=site_index,
         site_to_cell=site_to_cell,
+        cell_to_bravais=cell_to_bravais_arr,
+        supercell_matrix=supercell_matrix_arr,
+        kpoint_coefficients=kpoint_coefficients_arr,
     )
 
 

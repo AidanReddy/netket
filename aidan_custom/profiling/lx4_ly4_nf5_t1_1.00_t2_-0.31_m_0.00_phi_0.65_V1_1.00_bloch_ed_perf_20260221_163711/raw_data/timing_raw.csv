@@ -1,0 +1,11 @@
+variant,repeat,seconds
+legacy_loop,0,4.638225395232439
+legacy_loop,1,4.046876547858119
+legacy_loop,2,4.678624236956239
+legacy_loop,3,4.926226865500212
+legacy_loop,4,4.929589215666056
+optimized_all_sectors,0,0.7200839426368475
+optimized_all_sectors,1,0.5457913763821125
+optimized_all_sectors,2,0.5484739802777767
+optimized_all_sectors,3,0.5490738674998283
+optimized_all_sectors,4,0.5475036185234785

@@ -17,6 +17,7 @@ from .pair_data import (
     make_translation_equivariant_pair_data,
     make_translation_equivariant_pair_data_from_graph,
 )
+from .psiformer import LogPsiFormer, NeuralOrbitalHead
 from .slater import LogSlaterDeterminant, LogSlaterJastrow
 from .slater_boseformer import LogSlaterBoseFormer
 from .slater_vit import LogSlaterSpatialViT
@@ -28,9 +29,11 @@ __all__ = [
     "ComplexLogCoshOutputHead",
     "ComplexParticleOrbitalProductHead",
     "LogBoseFormerProduct",
+    "LogPsiFormer",
     "LogSlaterBoseFormer",
     "LogSlaterDeterminant",
     "LogSlaterJastrow",
+    "NeuralOrbitalHead",
     "LogSlaterSpatialViT",
     "LogSpatialViT",
     "OccupiedPeriodicFeatureEmbedding",

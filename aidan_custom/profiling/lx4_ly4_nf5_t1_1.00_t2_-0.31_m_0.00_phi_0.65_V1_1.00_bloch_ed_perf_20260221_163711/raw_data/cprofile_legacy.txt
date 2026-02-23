@@ -1,0 +1,38 @@
+         20199846 function calls in 9.037 seconds
+
+   Ordered by: cumulative time
+   List reduced from 77 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.001    0.001    9.037    9.037 /home/areddy/netket/results/lx4_ly4_nf5_t1_1.00_t2_-0.31_m_0.00_phi_0.65_V1_1.00_bloch_ed_perf_20260221_163711/run_ed_benchmark_profile.py:57(run_legacy_sector_loop)
+       16    0.016    0.001    9.034    0.565 /home/areddy/netket/aidan_custom/bloch_ed/workflow.py:19(solve_projected_sector)
+       16    0.085    0.005    8.689    0.543 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:776(build_many_body_hamiltonian_dense)
+       16    5.705    0.357    6.871    0.429 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:629(_accumulate_many_body_entries)
+       16    0.007    0.000    1.732    0.108 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:566(prepare_many_body_operator_data)
+       16    0.663    0.041    1.100    0.069 /home/areddy/netket/aidan_custom/bloch_ed/interactions.py:121(extract_nonzero_quartic_terms)
+ 13403728    0.705    0.000    0.705    0.000 {method 'bit_count' of 'int' objects}
+       16    0.595    0.037    0.621    0.039 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:537(_group_quartic_terms)
+  5855504    0.448    0.000    0.448    0.000 {method 'get' of 'dict' objects}
+       16    0.406    0.025    0.406    0.025 /home/areddy/netket/aidan_custom/bloch_ed/interactions.py:10(make_quartic_term_list)
+       16    0.000    0.000    0.327    0.020 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:832(diagonalize_many_body_hamiltonian)
+       16    0.326    0.020    0.327    0.020 /home/areddy/netket/.venv/lib/python3.11/site-packages/numpy/linalg/_linalg.py:1536(eigh)
+   869632    0.048    0.000    0.048    0.000 {method 'append' of 'list' objects}
+       16    0.004    0.000    0.012    0.001 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:663(<listcomp>)
+    26208    0.008    0.000    0.009    0.000 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:355(iter_occupied_orbitals)
+       32    0.000    0.000    0.008    0.000 /home/areddy/netket/.venv/lib/python3.11/site-packages/numpy/_core/numeric.py:625(argwhere)
+       64    0.000    0.000    0.008    0.000 /home/areddy/netket/.venv/lib/python3.11/site-packages/numpy/_core/fromnumeric.py:51(_wrapfunc)
+       32    0.000    0.000    0.006    0.000 /home/areddy/netket/.venv/lib/python3.11/site-packages/numpy/_core/fromnumeric.py:2018(nonzero)
+       32    0.006    0.000    0.006    0.000 {method 'nonzero' of 'numpy.ndarray' objects}
+       16    0.001    0.000    0.003    0.000 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:553(_group_quartic_annihilation_targets)
+       32    0.000    0.000    0.003    0.000 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:463(build_fock_basis)
+       32    0.002    0.000    0.002    0.000 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:514(<dictcomp>)
+       32    0.000    0.000    0.002    0.000 /home/areddy/netket/.venv/lib/python3.11/site-packages/numpy/_core/fromnumeric.py:629(transpose)
+       16    0.002    0.000    0.002    0.000 {built-in method numpy.zeros}
+       32    0.002    0.000    0.002    0.000 /home/areddy/netket/.venv/lib/python3.11/site-packages/numpy/_core/fromnumeric.py:41(_wrapit)
+       16    0.001    0.000    0.001    0.000 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:525(_group_one_body_terms)
+     2724    0.001    0.000    0.001    0.000 /home/areddy/netket/.venv/lib/python3.11/site-packages/jax/_src/lib/__init__.py:124(_xla_gc_callback)
+       16    0.000    0.000    0.001    0.000 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:560(<dictcomp>)
+    21840    0.001    0.000    0.001    0.000 {method 'bit_length' of 'int' objects}
+      256    0.000    0.000    0.001    0.000 {built-in method builtins.sorted}
+
+

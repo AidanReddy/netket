@@ -1,0 +1,38 @@
+         78470 function calls in 0.585 seconds
+
+   Ordered by: cumulative time
+   List reduced from 86 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.002    0.002    0.585    0.585 /home/areddy/netket/results/lx4_ly4_nf5_t1_1.00_t2_-0.31_m_0.00_phi_0.65_V1_1.00_bloch_ed_perf_20260221_163711/run_ed_benchmark_profile.py:92(run_optimized_all_sectors)
+        1    0.000    0.000    0.583    0.583 /home/areddy/netket/aidan_custom/bloch_ed/workflow.py:85(solve_projected_all_momentum_sectors)
+       16    0.000    0.000    0.453    0.028 /home/areddy/netket/aidan_custom/bloch_ed/workflow.py:19(solve_projected_sector)
+       16    0.000    0.000    0.314    0.020 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:832(diagonalize_many_body_hamiltonian)
+       16    0.313    0.020    0.314    0.020 /home/areddy/netket/.venv/lib/python3.11/site-packages/numpy/linalg/_linalg.py:1536(eigh)
+       16    0.006    0.000    0.139    0.009 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:776(build_many_body_hamiltonian_dense)
+       16    0.000    0.000    0.133    0.008 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:307(_build_many_body_hamiltonian_dense_numba)
+        1    0.000    0.000    0.128    0.128 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:566(prepare_many_body_operator_data)
+       16    0.119    0.007    0.119    0.007 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:197(_assemble_dense_hamiltonian_numba)
+        1    0.041    0.041    0.069    0.069 /home/areddy/netket/aidan_custom/bloch_ed/interactions.py:121(extract_nonzero_quartic_terms)
+        1    0.037    0.037    0.039    0.039 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:537(_group_quartic_terms)
+        1    0.025    0.025    0.025    0.025 /home/areddy/netket/aidan_custom/bloch_ed/interactions.py:10(make_quartic_term_list)
+        1    0.020    0.020    0.020    0.020 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:123(_build_two_body_compact_arrays)
+       16    0.010    0.001    0.011    0.001 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:70(_build_occupied_matrix)
+    54352    0.003    0.000    0.003    0.000 {method 'append' of 'list' objects}
+       16    0.001    0.000    0.002    0.000 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:53(_build_state_index_lookup_array)
+       16    0.000    0.000    0.001    0.000 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:463(build_fock_basis)
+    21840    0.001    0.000    0.001    0.000 {method 'bit_length' of 'int' objects}
+       16    0.001    0.000    0.001    0.000 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:514(<dictcomp>)
+       16    0.001    0.000    0.001    0.000 /home/areddy/netket/.venv/lib/python3.11/site-packages/numpy/_core/numeric.py:324(full)
+        7    0.000    0.000    0.001    0.000 /home/areddy/netket/.venv/lib/python3.11/site-packages/numpy/_core/fromnumeric.py:51(_wrapfunc)
+        2    0.000    0.000    0.001    0.000 /home/areddy/netket/.venv/lib/python3.11/site-packages/numpy/_core/numeric.py:625(argwhere)
+        2    0.000    0.000    0.000    0.000 /home/areddy/netket/.venv/lib/python3.11/site-packages/numpy/_core/fromnumeric.py:2018(nonzero)
+        2    0.000    0.000    0.000    0.000 {method 'nonzero' of 'numpy.ndarray' objects}
+        1    0.000    0.000    0.000    0.000 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:553(_group_quartic_annihilation_targets)
+        2    0.000    0.000    0.000    0.000 /home/areddy/netket/.venv/lib/python3.11/site-packages/numpy/_core/fromnumeric.py:629(transpose)
+      147    0.000    0.000    0.000    0.000 {built-in method numpy.asarray}
+        1    0.000    0.000    0.000    0.000 /home/areddy/netket/aidan_custom/bloch_ed/many_body.py:91(_build_one_body_compact_arrays)
+        2    0.000    0.000    0.000    0.000 /home/areddy/netket/.venv/lib/python3.11/site-packages/numpy/_core/fromnumeric.py:41(_wrapit)
+       48    0.000    0.000    0.000    0.000 /home/areddy/netket/.venv/lib/python3.11/site-packages/scipy/_lib/_sparse.py:10(issparse)
+
+

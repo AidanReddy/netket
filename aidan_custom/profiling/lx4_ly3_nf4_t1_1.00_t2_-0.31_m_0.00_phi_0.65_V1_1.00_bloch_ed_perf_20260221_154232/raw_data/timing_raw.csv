@@ -1,0 +1,17 @@
+variant,repeat,seconds
+legacy_loop,0,0.5696882382035255
+legacy_loop,1,0.5682404395192862
+legacy_loop,2,0.5682691298425198
+legacy_loop,3,0.5680431332439184
+legacy_loop,4,0.5677483677864075
+legacy_loop,5,0.5687452387064695
+legacy_loop,6,0.5675628557801247
+legacy_loop,7,0.5687990188598633
+optimized_all_sectors,0,0.04890601150691509
+optimized_all_sectors,1,0.048493994399905205
+optimized_all_sectors,2,0.048369275406003
+optimized_all_sectors,3,0.04814613237977028
+optimized_all_sectors,4,0.04822207987308502
+optimized_all_sectors,5,0.0480667520314455
+optimized_all_sectors,6,0.048428213223814964
+optimized_all_sectors,7,0.048269251361489296
