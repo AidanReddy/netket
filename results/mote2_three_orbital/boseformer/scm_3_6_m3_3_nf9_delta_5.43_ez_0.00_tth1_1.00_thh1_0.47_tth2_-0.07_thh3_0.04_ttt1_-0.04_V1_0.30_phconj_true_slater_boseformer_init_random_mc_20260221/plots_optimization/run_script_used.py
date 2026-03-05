@@ -5,7 +5,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-os.environ.setdefault("CUDA_VISIBLE_DEVICES", "0")
+os.environ.setdefault("CUDA_VISIBLE_DEVICES", "1")
 
 import flax.serialization
 import jax
@@ -443,13 +443,13 @@ def main():
     # Optimization controls.
     model_type = "slater_boseformer"
     sample_type = os.environ.get("SAMPLE_TYPE", "MC")
-    n_iter = int(os.environ.get("N_ITER", "5000"))
+    n_iter = int(os.environ.get("N_ITER", "2000"))
     n_samples = int(os.environ.get("N_SAMPLES", str(1024 * 4)))
-    n_discard_per_chain = int(os.environ.get("N_DISCARD_PER_CHAIN", "8"))
+    n_discard_per_chain = int(os.environ.get("N_DISCARD_PER_CHAIN", "4"))
     sweep_size = int(os.environ.get("SWEEP_SIZE", str(2 * n_fermions)))
-    n_chains = int(os.environ.get("N_CHAINS", "512"))
-    learning_rate = float(os.environ.get("LEARNING_RATE", "0.05"))
-    diag_shift = float(os.environ.get("DIAG_SHIFT", "0.01"))
+    n_chains = int(os.environ.get("N_CHAINS", "1024"))
+    learning_rate = float(os.environ.get("LEARNING_RATE", "0.01"))
+    diag_shift = float(os.environ.get("DIAG_SHIFT", "0.001"))
 
     # Post-training observables sampling controls.
     obs_n_samples = int(os.environ.get("OBS_N_SAMPLES", str(n_samples * 10)))

@@ -46,9 +46,13 @@ using a fixed-size `jnp.nonzero` gather (JIT-friendly, no variable-length contro
 
 ---
 
-## 2) Periodified Input Embedding
+## 2) Input Embedding (Two Options)
 
-Same as BoseFormer. For each occupied particle $p$:
+Two embedding strategies are supported, selected by the `embedding_type` constructor argument (`"periodic"` by default).
+
+### 2a) Periodic Feature Embedding (`embedding_type="periodic"`)
+
+Same as BoseFormer. For each occupied particle $p$, form a 4-dimensional periodic feature vector from the real-space coordinates:
 
 $$
 \mathbf{u}_p =
@@ -58,16 +62,35 @@ $$
 \cos(\mathbf{x}_p \cdot \mathbf{G}_2) \\
 \sin(\mathbf{x}_p \cdot \mathbf{G}_2)
 \end{bmatrix}
-\in \mathbb{R}^4.
+\in \mathbb{R}^4,
 $$
 
-Linear projection to model dimension:
+then project linearly to model dimension:
 
 $$
 \mathbf{h}^{(0)}_p = W_\text{in} \mathbf{u}_p + \mathbf{b}_\text{in}, \qquad W_\text{in} \in \mathbb{R}^{d \times 4}.
 $$
 
 **Precomputation:** All four trig features for every site are computed once at `setup()` time, avoiding trig in the hot path. Per-call, only the gather over $I(n)$ is needed.
+
+Requires `positions` (shape $(N_s, 2)$) and `g_vectors` (shape $(2,2)$) at construction time.
+
+### 2b) Learned Site-Index Embedding (`embedding_type="site_index"`)
+
+Each site $i \in \{0, \dots, N_s - 1\}$ is assigned a learnable embedding vector. A trainable table $E \in \mathbb{R}^{N_s \times d}$ is allocated, and the initial tokens for the occupied particles are simply:
+
+$$
+\mathbf{h}^{(0)}_p = E[i_p], \qquad p = 1, \dots, N_f,
+$$
+
+where $i_p$ is the 0-based index of the $p$-th occupied site (sorted ascending).
+
+The table $E$ is initialized with Xavier uniform and is jointly optimized with the rest of the network. This embedding carries **no explicit spatial prior** — the network must learn all site-to-site relationships from attention alone.
+
+**Pros:** no geometry input needed; potentially more flexible in systems where real-space coordinates are not the natural prior.
+**Cons:** $N_s \times d$ extra parameters; loses built-in translation equivariance; may need more training to learn spatial structure.
+
+Parameter count: $N_s \times d$ reals (versus $4d$ reals for the periodic projection weights, plus $d$ bias terms).
 
 ---
 
@@ -201,11 +224,16 @@ $$
 }
 $$
 
-where $\Phi^{(k)}(n)$ is computed by:
+where $\Phi^{(k)}(n)$ is computed by (two embedding options):
 
 $$
-n \;\xrightarrow{\text{gather}}\; \{\mathbf{x}_p\} \;\xrightarrow{\text{periodic embed}}\; \mathbf{h}^{(0)} \;\xrightarrow{\text{BoseFormer encoder}}\; \mathbf{h}^{(L)} \;\xrightarrow{\text{LN + linear head}}\; \Phi^{(k)}.
+n \;\xrightarrow{\text{gather}}\; \{i_p\} \;\xrightarrow{\begin{cases}\text{periodic embed} \\ \text{site-index embed}\end{cases}}\; \mathbf{h}^{(0)} \;\xrightarrow{\text{BoseFormer encoder}}\; \mathbf{h}^{(L)} \;\xrightarrow{\text{LN + linear head}}\; \Phi^{(k)}.
 $$
+
+| `embedding_type` | Input to encoder | Spatial prior | Extra params |
+|---|---|---|---|
+| `"periodic"` | $\cos/\sin$ of $\mathbf{r}_{i_p} \cdot \mathbf{G}_\mu$, projected | Yes (PBC-aware) | $4d + d$ ($W_\text{in}$, $\mathbf{b}_\text{in}$) |
+| `"site_index"` | Row $i_p$ of learned table $E \in \mathbb{R}^{N_s \times d}$ | None | $N_s \cdot d$ |
 
 ---
 
@@ -240,13 +268,14 @@ aidan_custom/models/
 ```python
 LogPsiFormer(
     hilbert: nk.hilbert.SpinOrbitalFermions,
-    positions: Any,          # (n_sites, 2)
-    g_vectors: Any,          # (2, 2): [G1, G2]
+    positions: Any,          # (n_sites, 2); None allowed when embedding_type="site_index"
+    g_vectors: Any,          # (2, 2): [G1, G2]; None allowed when embedding_type="site_index"
     num_layers: int,
     d_model: int,
     n_heads: int,
     n_determinants: int = 1,
     mlp_hidden_factor: int = 4,
+    embedding_type: str = "periodic",  # "periodic" or "site_index"
     use_jastrow: bool = False,
     jastrow_param_dtype: DType = jnp.float64,
     param_dtype: DType = jnp.float64,

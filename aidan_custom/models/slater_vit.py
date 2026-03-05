@@ -19,6 +19,7 @@ class LogSlaterSpatialViT(nn.Module):
     n_heads: int
     pair_classes: Any
     pair_distances: Any
+    displacement_only_attention: bool = True
     slater_kernel_init: Any = default_kernel_init
     slater_param_dtype: DType = jnp.float64
     slater_split_complex_params: bool = True
@@ -55,6 +56,7 @@ class LogSlaterSpatialViT(nn.Module):
             n_heads=self.n_heads,
             pair_classes=self.pair_classes,
             pair_distances=self.pair_distances,
+            displacement_only_attention=self.displacement_only_attention,
             mlp_hidden_factor=self.mlp_hidden_factor,
             output_hidden_dim=self.output_hidden_dim,
             param_dtype=self.vit_param_dtype,

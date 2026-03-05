@@ -14,6 +14,7 @@ class SpatialFactoredMultiHeadAttention(nn.Module):
     n_heads: int
     pair_classes: Any
     pair_distances: Any
+    displacement_only_attention: bool = True
     param_dtype: DType = jnp.float64
     kernel_init: Any = nn.initializers.xavier_uniform()
     xi_epsilon: float = 1.0e-6
@@ -32,6 +33,7 @@ class SpatialFactoredMultiHeadAttention(nn.Module):
         if pair_distances_arr.ndim != 1 or pair_distances_arr.size == 0:
             raise ValueError("pair_distances must be a non-empty 1D array.")
         n_pair_classes = pair_distances_arr.shape[0]
+        n_sites = pair_classes_arr.shape[0]
 
         self._pair_classes = pair_classes_arr
         self._pair_distances = pair_distances_arr.astype(self.param_dtype)
@@ -60,12 +62,12 @@ class SpatialFactoredMultiHeadAttention(nn.Module):
             name="output_proj",
         )
 
-        self.alpha = self.param(
-            "alpha",
-            self.kernel_init,
-            (self.n_heads, n_pair_classes),
-            self.param_dtype,
+        alpha_shape = (
+            (self.n_heads, n_pair_classes)
+            if self.displacement_only_attention
+            else (self.n_heads, n_sites, n_sites)
         )
+        self.alpha = self.param("alpha", self.kernel_init, alpha_shape, self.param_dtype)
         self.raw_xi = self.param(
             "raw_xi",
             nn.initializers.constant(
@@ -104,23 +106,18 @@ class SpatialFactoredMultiHeadAttention(nn.Module):
             self._class_counts_by_row == self._class_counts[jnp.newaxis, :]
         )
 
-        def _kernel_pairs_uniform(args):
+        def _envelope_norm_pairs_uniform(envelope):
             # Written with Codex 02-18-26.
-            envelope, alpha = args
             denom = jnp.sum(
                 envelope * self._class_counts[jnp.newaxis, :],
                 axis=-1,
                 keepdims=True,
             )
             envelope_norm_by_class = envelope / denom
-            return (
-                alpha[:, self._pair_classes]
-                * envelope_norm_by_class[:, self._pair_classes]
-            )
+            return envelope_norm_by_class[:, self._pair_classes]
 
-        def _kernel_pairs_general(args):
+        def _envelope_norm_pairs_general(envelope):
             # Written with Codex 02-18-26.
-            envelope, alpha = args
             denom = jnp.einsum(
                 "hc,ic->hi",
                 envelope,
@@ -128,15 +125,20 @@ class SpatialFactoredMultiHeadAttention(nn.Module):
                 optimize=True,
             )
             envelope_pairs = envelope[:, self._pair_classes]
-            envelope_norm = envelope_pairs / denom[:, :, None]
-            return alpha[:, self._pair_classes] * envelope_norm
+            return envelope_pairs / denom[:, :, None]
 
-        kernel_pairs = jax.lax.cond(
+        envelope_norm_pairs = jax.lax.cond(
             is_uniform_row_class_count,
-            _kernel_pairs_uniform,
-            _kernel_pairs_general,
-            operand=(envelope, self.alpha),
+            _envelope_norm_pairs_uniform,
+            _envelope_norm_pairs_general,
+            operand=envelope,
         )
+        alpha_pairs = (
+            self.alpha[:, self._pair_classes]
+            if self.displacement_only_attention
+            else self.alpha
+        )
+        kernel_pairs = alpha_pairs * envelope_norm_pairs
 
         attended = jnp.einsum("hij,bhjd->bhid", kernel_pairs, v, optimize=True)
         attended = jnp.transpose(attended, (0, 2, 1, 3))

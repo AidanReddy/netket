@@ -8,7 +8,7 @@ from .boseformer import (
     LogBoseFormerProduct,
     ParticleQKVSelfAttention,
 )
-from .embedding import OccupiedPeriodicFeatureEmbedding, SiteOccupancyEmbedding
+from .embedding import OccupiedPeriodicFeatureEmbedding, OccupiedSiteIndexEmbedding, SiteOccupancyEmbedding
 from .encoder import SpatialEncoder, SpatialEncoderBlock
 from .output_head import ComplexLogCoshOutputHead
 from .pair_data import (
@@ -37,6 +37,7 @@ __all__ = [
     "LogSlaterSpatialViT",
     "LogSpatialViT",
     "OccupiedPeriodicFeatureEmbedding",
+    "OccupiedSiteIndexEmbedding",
     "ParticleQKVSelfAttention",
     "SiteOccupancyEmbedding",
     "SpatialEncoder",

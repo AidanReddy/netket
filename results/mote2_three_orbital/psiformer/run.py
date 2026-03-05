@@ -44,6 +44,11 @@ Environment variables (all optional)
   MLP_HIDDEN_FACTOR           MLP hidden-layer factor (default: 2)
   N_DETERMINANTS              Number of Slater determinants (default: 1)
   USE_JASTROW                 0/1 — add two-body Jastrow factor (default: 0)
+  EMBEDDING_TYPE              periodic | site_index (default: periodic)
+                                periodic   — sin/cos periodic features from real-space
+                                             site coordinates projected to d_model
+                                site_index — learned embedding table indexed by integer
+                                             site index (0-based); no spatial prior
 """
 
 from __future__ import annotations
@@ -56,10 +61,17 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-os.environ.setdefault("CUDA_VISIBLE_DEVICES", "0")
+os.environ.setdefault("CUDA_VISIBLE_DEVICES", "1")
 
 import flax.serialization
 import jax
+
+# Use this to get the actual GPU name
+try:
+    print(f"GPU name: {jax.lib.xla_bridge.get_backend().platform_version}")
+except AttributeError:
+    print(f"JAX devices: {jax.devices()}")
+
 import jax.numpy as jnp
 import matplotlib
 
@@ -68,7 +80,12 @@ from matplotlib import pyplot as plt
 import netket as nk
 import numpy as np
 
-from aidan_custom.bloch_ed import build_mote2_three_orbital_lattice_embedding
+from aidan_custom.bloch_ed import (
+    build_fock_basis,
+    build_mote2_three_orbital_lattice_embedding,
+    build_mote2_three_orbital_projected_hamiltonian,
+    solve_projected_all_momentum_sectors,
+)
 from aidan_custom.geometry import fold_to_shortest_k
 from aidan_custom.models import LogPsiFormer
 from aidan_custom.mote2_three_orbital import (
@@ -173,6 +190,116 @@ def _fold_positions(positions: np.ndarray, sc_t1: np.ndarray, sc_t2: np.ndarray)
 
 
 # ---------------------------------------------------------------------------
+# Bloch-ED reference energies
+# ---------------------------------------------------------------------------
+
+_ED_COLORS = {1: "tab:orange", 2: "tab:green", 3: "tab:red"}
+_ED_LS     = {1: "--",         2: "-.",         3: ":"}
+
+
+def _compute_mote2_ed_reference_energies(
+    supercell_matrix: np.ndarray,
+    n_fermions: int,
+    delta: float,
+    ez: float,
+    t_th1: float,
+    t_hh1: float,
+    t_th2: float,
+    t_hh3: float,
+    t_tt1: float,
+    a_m: float,
+    ph_conj: bool,
+    V1: float,
+    dim_cutoff: int = 100_000,
+) -> dict[int, float | None]:
+    """Bloch-ED ground-state energies projected into 1, 2, and 3 bands.
+
+    Returns {n_bands: energy} where energy is None if any momentum-sector
+    Hilbert-space dimension exceeds *dim_cutoff*.
+    """
+    ed_energies: dict[int, float | None] = {}
+    for n_bands in (1, 2, 3):
+        selected_bands = tuple(range(n_bands))
+        print(f"\nBloch-ED: building {n_bands}-band projected Hamiltonian ...")
+        proj_ham = build_mote2_three_orbital_projected_hamiltonian(
+            selected_bands=selected_bands,
+            supercell_matrix=supercell_matrix,
+            delta=delta, ez=ez, t_th1=t_th1, t_hh1=t_hh1,
+            t_th2=t_th2, t_hh3=t_hh3, t_tt1=t_tt1,
+            a_m=a_m, ph_conj=ph_conj, V1=V1,
+        )
+        n_orbitals = int(proj_ham.one_body.shape[0])
+        lattice    = proj_ham.lattice
+        n_sectors  = lattice.Lx * lattice.Ly
+
+        # Quick upper-bound: if C(n_orbitals, n_fermions) is huge, skip early.
+        total_dim = math.comb(n_orbitals, n_fermions)
+        if total_dim > dim_cutoff * n_sectors:
+            print(
+                f"  Skipped: total C({n_orbitals},{n_fermions})={total_dim} "
+                f"implies some sector > {dim_cutoff}."
+            )
+            ed_energies[n_bands] = None
+            continue
+
+        # Build all sector bases (cached internally) and find max sector dim.
+        max_dim = 0
+        for kx in range(lattice.Lx):
+            for ky in range(lattice.Ly):
+                basis = build_fock_basis(
+                    n_orbitals=n_orbitals,
+                    n_particles=n_fermions,
+                    orbital_momenta=proj_ham.orbital_momenta,
+                    lattice_shape=(lattice.Lx, lattice.Ly),
+                    momentum_sector=(kx, ky),
+                )
+                max_dim = max(max_dim, len(basis.states))
+
+        if max_dim > dim_cutoff:
+            print(
+                f"  Skipped: max sector dim={max_dim} > {dim_cutoff} "
+                f"(n_orbitals={n_orbitals})."
+            )
+            ed_energies[n_bands] = None
+            continue
+
+        print(f"  Solving: n_orbitals={n_orbitals}, max sector dim={max_dim} ...")
+        sector_results = solve_projected_all_momentum_sectors(
+            projected_hamiltonian=proj_ham,
+            n_particles=n_fermions,
+        )
+        all_eigs = [
+            res["eigenvalues"]
+            for res in sector_results.values()
+            if len(res["eigenvalues"]) > 0
+        ]
+        if not all_eigs:
+            ed_energies[n_bands] = None
+            continue
+
+        e_gs = float(min(float(ev[0]) for ev in all_eigs))
+        ed_energies[n_bands] = e_gs
+        print(f"  E_gs({n_bands} Band) = {e_gs:.10f}")
+
+    return ed_energies
+
+
+def _add_ed_lines(ax, ed_energies: dict[int, float | None]) -> None:
+    """Draw horizontal ED reference lines on *ax* for each available band count."""
+    for n_bands in (1, 2, 3):
+        e = ed_energies.get(n_bands)
+        if e is not None:
+            ax.axhline(
+                e,
+                color=_ED_COLORS.get(n_bands, "gray"),
+                ls=_ED_LS.get(n_bands, "--"),
+                lw=1.5,
+                label=f"{n_bands} Band",
+                zorder=2,
+            )
+
+
+# ---------------------------------------------------------------------------
 # Observables
 # ---------------------------------------------------------------------------
 
@@ -222,6 +349,52 @@ def _concat(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return np.concatenate((a, b))
 
 
+def _truncate_history(history: dict, max_completed_step: int) -> dict:
+    # Written with Codex 03-02-26.
+    if max_completed_step <= 0 or history["iters"].size == 0:
+        return history
+    energy_keep = history["iters"] < max_completed_step
+    update_keep = history["update_norm_iters"] < max_completed_step
+    if bool(np.all(energy_keep)) and bool(np.all(update_keep)):
+        return history
+    trimmed = {}
+    for key, dtype in _HIST_DTYPES.items():
+        values = history[key]
+        keep = update_keep if key.startswith("update_norm") else energy_keep
+        trimmed[key] = np.asarray(values[keep], dtype=dtype)
+    return trimmed
+
+
+def _checkpoint_step(path: Path) -> int | None:
+    # Written with Codex 03-02-26.
+    stem = path.stem
+    if not stem.startswith("step_"):
+        return None
+    try:
+        return int(stem.split("_", 1)[1])
+    except ValueError:
+        return None
+
+
+def _select_resume_checkpoint(
+    checkpoint_path: Path,
+    ckpt_dir: Path,
+) -> tuple[Path | None, int | None]:
+    # Written with Codex 03-02-26.
+    if checkpoint_path.exists():
+        return checkpoint_path, None
+    best_path = None
+    best_step = None
+    for candidate in ckpt_dir.glob("step_*.mpack"):
+        step = _checkpoint_step(candidate)
+        if step is None:
+            continue
+        if best_step is None or step > best_step:
+            best_path = candidate
+            best_step = step
+    return best_path, best_step
+
+
 # ---------------------------------------------------------------------------
 # Plotting helpers
 # ---------------------------------------------------------------------------
@@ -269,8 +442,9 @@ def main() -> None:
     # -----------------------------------------------------------------------
 
     # Physical system
-    supercell_matrix = np.array([[3, 6], [-3, 3]], dtype=np.int64)
-    n_fermions = 9
+    supercell_matrix = np.array([[3, 0], [0, 3]], dtype=np.int64)
+    #supercell_matrix = #np.array([[3, 6], [-3, 3]], dtype=np.int64)
+    n_fermions = 3
     V1 = _env_float("V1", 0.3)
 
     # MoTe2 ideal-band parameters
@@ -286,7 +460,7 @@ def main() -> None:
 
     # Optimisation
     sample_type         = _env_str("SAMPLE_TYPE", "MC")
-    n_iter              = _env_int("N_ITER", 6000)
+    n_iter              = _env_int("N_ITER", 500)
     n_samples           = _env_int("N_SAMPLES", 1024 * 4)
     n_discard_per_chain = _env_int("N_DISCARD_PER_CHAIN", 3)
     sweep_size          = _env_int("SWEEP_SIZE", 2 * n_fermions)
@@ -299,12 +473,15 @@ def main() -> None:
     obs_n_discard_per_chain = _env_int("OBS_N_DISCARD_PER_CHAIN", max(64, n_discard_per_chain))
 
     # PsiFormer architecture
-    num_layers        = _env_int("NUM_LAYERS", 4)
-    d_model           = _env_int("D_MODEL", 64)
+    num_layers        = _env_int("NUM_LAYERS", 3)
+    d_model           = _env_int("D_MODEL", 32)
     n_heads           = _env_int("N_HEADS", 4)
     mlp_hidden_factor = _env_int("MLP_HIDDEN_FACTOR", 4)
-    n_determinants    = _env_int("N_DETERMINANTS", 2)
+    n_determinants    = _env_int("N_DETERMINANTS", 1)
     use_jastrow       = _env_bool("USE_JASTROW", False)
+    embedding_type    = _env_str("EMBEDDING_TYPE", "periodic")
+    if embedding_type not in ("periodic", "site_index"):
+        raise ValueError(f"EMBEDDING_TYPE must be 'periodic' or 'site_index', got {embedding_type!r}")
 
     # -----------------------------------------------------------------------
     # Resolve job folder
@@ -316,16 +493,18 @@ def main() -> None:
     c, d = int(supercell_matrix[1, 0]), int(supercell_matrix[1, 1])
     c_str = f"m{abs(c)}" if c < 0 else str(c)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    emb_tag = "per" if embedding_type == "periodic" else "idx"
     job_name = (
         f"psiformer_scm_{a}_{b}_{c_str}_{d}_nf{n_fermions}"
-        f"_V1_{V1:.2f}_nd{n_determinants}_{sample_type.lower()}_{timestamp}"
+        f"_V1_{V1:.2f}_nd{n_determinants}_emb{emb_tag}_{sample_type.lower()}_{timestamp}"
     )
 
     job_dir, is_new_job = _resolve_job_dir(script_dir, job_name)
     raw_data_dir  = job_dir / "raw_data"
     plots_opt_dir = job_dir / "plots_optimization"
     plots_obs_dir = job_dir / "plots_observables"
-    for folder in (job_dir, raw_data_dir, plots_opt_dir, plots_obs_dir):
+    ckpt_dir = job_dir / "checkpoints"
+    for folder in (job_dir, raw_data_dir, plots_opt_dir, plots_obs_dir, ckpt_dir):
         folder.mkdir(parents=True, exist_ok=True)
 
     if is_new_job:
@@ -360,6 +539,10 @@ def main() -> None:
 
     history_path    = raw_data_dir / "optimization_history.npz"
     checkpoint_path = job_dir / "vstate_variables.mpack"
+    resume_checkpoint_path, checkpoint_resume_step = _select_resume_checkpoint(
+        checkpoint_path,
+        ckpt_dir,
+    )
 
     # -----------------------------------------------------------------------
     # Hamiltonian and geometry
@@ -386,6 +569,20 @@ def main() -> None:
     sc_basis  = np.stack([sc_t1, sc_t2], axis=0)  # (2, 2) supercell basis
 
     # -----------------------------------------------------------------------
+    # Bloch-ED reference energies (1-band, 2-band, 3-band projections)
+    # -----------------------------------------------------------------------
+
+    print("\nComputing Bloch-ED reference energies ...")
+    ed_energies = _compute_mote2_ed_reference_energies(
+        supercell_matrix=supercell_matrix,
+        n_fermions=n_fermions,
+        delta=delta, ez=ez, t_th1=t_th1, t_hh1=t_hh1,
+        t_th2=t_th2, t_hh3=t_hh3, t_tt1=t_tt1,
+        a_m=a_m, ph_conj=ph_conj, V1=V1,
+    )
+    print()
+
+    # -----------------------------------------------------------------------
     # Model
     # -----------------------------------------------------------------------
 
@@ -398,6 +595,7 @@ def main() -> None:
         n_heads=n_heads,
         mlp_hidden_factor=mlp_hidden_factor,
         n_determinants=n_determinants,
+        embedding_type=embedding_type,
         use_jastrow=use_jastrow,
         param_dtype=jnp.float64,
     )
@@ -428,21 +626,34 @@ def main() -> None:
     # -----------------------------------------------------------------------
 
     history_prev = _load_history(history_path)
-    if history_prev["iters"].size > 0:
-        start_step = int(history_prev["iters"][-1]) + 1
+    history_resume_step = int(history_prev["iters"][-1]) + 1 if history_prev["iters"].size > 0 else 0
+    if checkpoint_resume_step is None:
+        start_step = history_resume_step
+    else:
+        start_step = checkpoint_resume_step
+        if history_resume_step != start_step:
+            relation = "ahead of" if history_resume_step > start_step else "behind"
+            print(
+                "History extends "
+                f"{relation} checkpoint state; truncating/using checkpoint step {start_step}."
+            )
+        history_prev = _truncate_history(history_prev, start_step)
+
+    if start_step > 0:
         print(f"Resuming from step {start_step} ({history_prev['iters'].size} steps in history).")
     else:
-        start_step = 0
         print("Starting fresh from step 0.")
 
-    if checkpoint_path.exists():
+    if resume_checkpoint_path is not None:
         vstate.variables = flax.serialization.from_bytes(
-            vstate.variables, checkpoint_path.read_bytes()
+            vstate.variables,
+            resume_checkpoint_path.read_bytes(),
         )
-        print(f"Loaded checkpoint: {checkpoint_path}")
+        print(f"Loaded checkpoint: {resume_checkpoint_path}")
     elif start_step > 0:
         raise FileNotFoundError(
-            f"Expected checkpoint for resumption at {checkpoint_path}, but none was found."
+            "Expected checkpoint for resumption, but neither "
+            f"{checkpoint_path} nor any step_*.mpack file was found."
         )
 
     # -----------------------------------------------------------------------
@@ -453,8 +664,22 @@ def main() -> None:
     driver = nk.driver.VMC_SR(
         ham_sr, optimizer, variational_state=vstate, diag_shift=diag_shift, mode="complex",
     )
+    base_callback = make_optimization_callback(job_dir)
+    checkpoint_every = max(1, n_iter // 10)
+    checkpoint_steps = set(range(checkpoint_every - 1, n_iter, checkpoint_every))
+
+    def _callback(step: int, log_data: dict, driver_obj) -> bool:
+        # Written with Codex 03-02-26.
+        base_callback(step, log_data, driver_obj)
+        if step in checkpoint_steps:
+            abs_step = start_step + step + 1
+            ckpt = ckpt_dir / f"step_{abs_step}.mpack"
+            ckpt.write_bytes(flax.serialization.to_bytes(vstate.variables))
+            print(f"[Checkpoint] Saved at absolute step {abs_step}: {ckpt}", flush=True)
+        return True
+
     log = nk.logging.RuntimeLog()
-    driver.run(n_iter=n_iter, out=log, callback=make_optimization_callback(job_dir))
+    driver.run(n_iter=n_iter, out=log, callback=_callback)
 
     # -----------------------------------------------------------------------
     # Save checkpoint and parameters
@@ -541,6 +766,7 @@ def main() -> None:
     # Full energy trace
     fig, ax = plt.subplots(figsize=(7, 4))
     _energy_band(ax, iters, energy_mean, energy_sigma, lw=1.8, color="tab:blue", label="VMC_SR")
+    _add_ed_lines(ax, ed_energies)
     ax.set(title="MoTe2 three-orbital: PsiFormer optimisation",
            xlabel="Optimisation step", ylabel="Energy")
     ax.grid(alpha=0.25); ax.legend()
@@ -552,6 +778,7 @@ def main() -> None:
     if iters.size > 0:
         _energy_band(ax, iters[i0:], energy_mean[i0:], energy_sigma[i0:],
                      lw=1.8, color="tab:blue", label="VMC_SR")
+        _add_ed_lines(ax, ed_energies)
         ax.legend()
     ax.set(xlabel="Optimisation step", ylabel="Energy"); ax.grid(alpha=0.25)
     _save_fig(fig, plots_opt_dir / "energy_vs_step_final80pct.png")
@@ -754,6 +981,7 @@ def main() -> None:
             "n_heads": n_heads,
             "mlp_hidden_factor": mlp_hidden_factor,
             "n_determinants": n_determinants,
+            "embedding_type": embedding_type,
             "use_jastrow": use_jastrow,
         },
         "optimization": {
@@ -778,6 +1006,10 @@ def main() -> None:
         "final_energy_real":  float(np.real(energy_mean[-1]))  if energy_mean.size  > 0 else None,
         "final_energy_sigma": float(energy_sigma[-1])           if energy_sigma.size > 0 else None,
         "final_update_norm":  float(un_values[-1])              if un_values.size    > 0 else None,
+        "ed_reference_energies": {
+            str(n_bands): (None if e is None else float(e))
+            for n_bands, e in ed_energies.items()
+        },
     }
     (job_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
 
@@ -785,6 +1017,9 @@ def main() -> None:
     if un_values.size > 0:
         print(f"Final update norm   = {float(un_values[-1]):.6e}")
     print(f"Final std(E_loc)    = {float(energy_std_local[-1]):.10f}")
+    for n_bands, e in sorted(ed_energies.items()):
+        tag = f"{e:.10f}" if e is not None else "skipped"
+        print(f"ED ref ({n_bands} Band)    = {tag}")
     print(f"Observables raw:    {obs_raw_path}")
     print(f"Optimisation plots: {plots_opt_dir}")
     print(f"Observable plots:   {plots_obs_dir}")

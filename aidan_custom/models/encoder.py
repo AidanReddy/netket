@@ -15,6 +15,7 @@ class SpatialEncoderBlock(nn.Module):
     n_heads: int
     pair_classes: Any
     pair_distances: Any
+    displacement_only_attention: bool = True
     mlp_hidden_factor: int = 4
     param_dtype: DType = jnp.float64
     kernel_init: Any = nn.initializers.xavier_uniform()
@@ -27,6 +28,7 @@ class SpatialEncoderBlock(nn.Module):
             n_heads=self.n_heads,
             pair_classes=self.pair_classes,
             pair_distances=self.pair_distances,
+            displacement_only_attention=self.displacement_only_attention,
             param_dtype=self.param_dtype,
             kernel_init=self.kernel_init,
             xi_epsilon=self.xi_epsilon,
@@ -70,6 +72,7 @@ class SpatialEncoder(nn.Module):
     n_heads: int
     pair_classes: Any
     pair_distances: Any
+    displacement_only_attention: bool = True
     mlp_hidden_factor: int = 4
     param_dtype: DType = jnp.float64
     kernel_init: Any = nn.initializers.xavier_uniform()
@@ -83,6 +86,7 @@ class SpatialEncoder(nn.Module):
                 n_heads=self.n_heads,
                 pair_classes=self.pair_classes,
                 pair_distances=self.pair_distances,
+                displacement_only_attention=self.displacement_only_attention,
                 mlp_hidden_factor=self.mlp_hidden_factor,
                 param_dtype=self.param_dtype,
                 kernel_init=self.kernel_init,

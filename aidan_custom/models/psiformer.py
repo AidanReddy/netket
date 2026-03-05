@@ -9,7 +9,7 @@ import netket as nk
 
 from ._common import DType
 from .boseformer import BoseFormerEncoder
-from .embedding import OccupiedPeriodicFeatureEmbedding
+from .embedding import OccupiedPeriodicFeatureEmbedding, OccupiedSiteIndexEmbedding
 from .slater import _hashable_matrix_literal, _logdet_cmplx
 
 
@@ -115,16 +115,21 @@ class LogPsiFormer(nn.Module):
     Args:
         hilbert:              SpinOrbitalFermions Hilbert space.
         positions:            (n_sites, 2) real-space site positions (hashable).
+                              Required when embedding_type="periodic"; ignored otherwise.
         g_vectors:            (2, 2) supercell reciprocal vectors G1, G2 (hashable).
+                              Required when embedding_type="periodic"; ignored otherwise.
         num_layers:           Number of BoseFormer encoder blocks.
         d_model:              Transformer model dimension.
         n_heads:              Number of attention heads (must divide d_model).
         n_determinants:       Number of Slater determinants K.  Default 1.
         mlp_hidden_factor:    MLP hidden-layer expansion factor.  Default 4.
+        embedding_type:       "periodic" (default) — sin/cos periodic features from
+                              real-space site coordinates; or "site_index" — a learned
+                              embedding table indexed by integer site index (0-based).
         use_jastrow:          If True, add NetKet two-body Jastrow.  Default False.
         jastrow_param_dtype:  Jastrow parameter dtype.
         param_dtype:          Parameter dtype for encoder and orbital head.
-        kernel_init:          Weight initialiser for encoder layers.
+        kernel_init:          Weight initialiser for encoder layers and embedding.
         orbital_kernel_init:  Weight initialiser for orbital head projections.
                               Xavier uniform is recommended (not zeros) because the
                               head feeds a determinant; an all-zero init gives a
@@ -132,13 +137,14 @@ class LogPsiFormer(nn.Module):
     """
 
     hilbert: nk.hilbert.SpinOrbitalFermions
-    positions: Any  # (n_sites, 2)
-    g_vectors: Any  # (2, 2)
+    positions: Any  # (n_sites, 2); None is allowed when embedding_type="site_index"
+    g_vectors: Any  # (2, 2);       None is allowed when embedding_type="site_index"
     num_layers: int
     d_model: int
     n_heads: int
     n_determinants: int = 1
     mlp_hidden_factor: int = 4
+    embedding_type: str = "periodic"
     use_jastrow: bool = False
     jastrow_param_dtype: DType = jnp.float64
     param_dtype: DType = jnp.float64
@@ -157,16 +163,31 @@ class LogPsiFormer(nn.Module):
         n_f = self.hilbert.n_fermions
         K = self.n_determinants
 
-        # --- Periodic feature embedding ---
-        x = OccupiedPeriodicFeatureEmbedding(
-            n_particles=n_f,
-            positions=self.positions,
-            g_vectors=self.g_vectors,
-            d_model=self.d_model,
-            param_dtype=self.param_dtype,
-            kernel_init=self.kernel_init,
-            name="embed",
-        )(n)
+        # --- Input embedding (toggled by embedding_type) ---
+        if self.embedding_type == "periodic":
+            x = OccupiedPeriodicFeatureEmbedding(
+                n_particles=n_f,
+                positions=self.positions,
+                g_vectors=self.g_vectors,
+                d_model=self.d_model,
+                param_dtype=self.param_dtype,
+                kernel_init=self.kernel_init,
+                name="embed",
+            )(n)
+        elif self.embedding_type == "site_index":
+            x = OccupiedSiteIndexEmbedding(
+                n_particles=n_f,
+                n_sites=self.hilbert.size,
+                d_model=self.d_model,
+                param_dtype=self.param_dtype,
+                kernel_init=self.kernel_init,
+                name="embed",
+            )(n)
+        else:
+            raise ValueError(
+                f"Unknown embedding_type={self.embedding_type!r}. "
+                "Choose 'periodic' or 'site_index'."
+            )
 
         # --- BoseFormer encoder (permutation-equivariant) ---
         x = BoseFormerEncoder(

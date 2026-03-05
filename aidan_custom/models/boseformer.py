@@ -8,7 +8,7 @@ import jax
 import jax.numpy as jnp
 
 from ._common import DType
-from .embedding import OccupiedPeriodicFeatureEmbedding
+from .embedding import OccupiedPeriodicFeatureEmbedding, OccupiedSiteIndexEmbedding
 from .slater import _hashable_matrix_literal
 
 
@@ -202,6 +202,7 @@ class LogBoseFormerProduct(nn.Module):
     d_model: int
     n_heads: int
     mlp_hidden_factor: int = 4
+    embedding_type: str = "periodic"
     param_dtype: DType = jnp.float64
     kernel_init: Any = nn.initializers.xavier_uniform()
     orbital_kernel_init: Any = jax.nn.initializers.zeros
@@ -214,15 +215,30 @@ class LogBoseFormerProduct(nn.Module):
 
     def setup(self):
         # Written with Codex 02-19-26.
-        self.embedding = OccupiedPeriodicFeatureEmbedding(
-            n_particles=self.n_particles,
-            positions=self.positions,
-            g_vectors=self.g_vectors,
-            d_model=self.d_model,
-            param_dtype=self.param_dtype,
-            kernel_init=self.kernel_init,
-            name="embed",
-        )
+        if self.embedding_type == "periodic":
+            self.embedding = OccupiedPeriodicFeatureEmbedding(
+                n_particles=self.n_particles,
+                positions=self.positions,
+                g_vectors=self.g_vectors,
+                d_model=self.d_model,
+                param_dtype=self.param_dtype,
+                kernel_init=self.kernel_init,
+                name="embed",
+            )
+        elif self.embedding_type == "site_index":
+            self.embedding = OccupiedSiteIndexEmbedding(
+                n_particles=self.n_particles,
+                n_sites=len(self.positions),
+                d_model=self.d_model,
+                param_dtype=self.param_dtype,
+                kernel_init=self.kernel_init,
+                name="embed",
+            )
+        else:
+            raise ValueError(
+                f"Unknown embedding_type={self.embedding_type!r}. "
+                "Choose 'periodic' or 'site_index'."
+            )
         self.encoder = BoseFormerEncoder(
             num_layers=self.num_layers,
             d_model=self.d_model,

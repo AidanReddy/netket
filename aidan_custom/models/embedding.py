@@ -33,6 +33,63 @@ class SiteOccupancyEmbedding(nn.Module):
         return x
 
 
+class OccupiedSiteIndexEmbedding(nn.Module):
+    """Learned site-index embedding for occupied particles.
+
+    Each of the n_sites sites gets a learnable embedding vector of dimension
+    d_model.  Given an occupation vector, the indices of occupied sites (sorted
+    ascending, i.e. in the same deterministic order used by
+    OccupiedPeriodicFeatureEmbedding) are extracted and their embeddings are
+    looked up from a learned table of shape (n_sites, d_model).
+
+    This embedding carries no explicit real-space or momentum-space information;
+    the network must learn site-to-site relationships entirely from attention.
+
+    Args:
+        n_particles: Number of occupied particles N_f.
+        n_sites:     Total number of sites (size of the Hilbert space index).
+        d_model:     Embedding dimension.
+        param_dtype: Parameter dtype.
+        kernel_init: Initialiser for the embedding table (xavier_uniform recommended).
+
+    Input:
+        n: (batch, n_sites) occupation vector with 0/1 entries.
+
+    Output:
+        x: (batch, n_particles, d_model) particle token embeddings.
+    """
+
+    n_particles: int
+    n_sites: int
+    d_model: int
+    param_dtype: DType = jnp.float64
+    kernel_init: Any = nn.initializers.xavier_uniform()
+
+    @nn.compact
+    def __call__(self, n: jax.Array) -> jax.Array:
+        x = jnp.atleast_2d(n)
+
+        # Deterministic token order: occupied sites listed by ascending index.
+        occupied_indices = jax.vmap(
+            lambda n_single: jnp.nonzero(
+                n_single > 0,
+                size=self.n_particles,
+                fill_value=0,
+            )[0]
+        )(x)  # (batch, n_particles)
+
+        # Learned embedding table: (n_sites, d_model)
+        table = self.param(
+            "site_embeddings",
+            self.kernel_init,
+            (self.n_sites, self.d_model),
+            self.param_dtype,
+        )
+
+        # Gather embeddings for occupied sites: (batch, n_particles, d_model)
+        return jnp.take(table, occupied_indices, axis=0)
+
+
 class OccupiedPeriodicFeatureEmbedding(nn.Module):
     n_particles: int
     positions: Any

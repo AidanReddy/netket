@@ -23,6 +23,7 @@ class LogSlaterBoseFormer(nn.Module):
     slater_param_dtype: DType = jnp.float64
     slater_split_complex_params: bool = True
     slater_initial_m_orbitals: Any | None = None
+    embedding_type: str = "periodic"
     boseformer_param_dtype: DType = jnp.float64
     mlp_hidden_factor: int = 4
     boseformer_kernel_init: Any = nn.initializers.xavier_uniform()
@@ -58,6 +59,7 @@ class LogSlaterBoseFormer(nn.Module):
             d_model=self.d_model,
             n_heads=self.n_heads,
             mlp_hidden_factor=self.mlp_hidden_factor,
+            embedding_type=self.embedding_type,
             param_dtype=self.boseformer_param_dtype,
             kernel_init=self.boseformer_kernel_init,
             orbital_kernel_init=self.boseformer_orbital_kernel_init,
