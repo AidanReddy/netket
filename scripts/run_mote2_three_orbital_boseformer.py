@@ -104,6 +104,8 @@ from aidan_custom.observables import (
 )
 from aidan_custom.optimization import make_optimization_callback
 
+_LAUNCH_ROOT = Path(__file__).resolve().parent.parent / "results" / "mote2_three_orbital" / "boseformer"
+
 
 # ---------------------------------------------------------------------------
 # Environment helpers
@@ -409,6 +411,7 @@ def _save_fig(fig, path: Path, dpi: int = 180) -> None:
 # ---------------------------------------------------------------------------
 
 def _resolve_job_dir(script_dir: Path, job_name: str) -> tuple[Path, bool]:
+    # Written with Codex 03-05-26.
     """Return (job_dir, is_new_job).
 
     If `raw_data/` already exists alongside the script (i.e. the script is
@@ -417,7 +420,8 @@ def _resolve_job_dir(script_dir: Path, job_name: str) -> tuple[Path, bool]:
     """
     if (script_dir / "raw_data").exists():
         return script_dir, False
-    job_dir = script_dir / "jobs" / job_name
+    launch_root = _LAUNCH_ROOT if script_dir.name == "scripts" else script_dir
+    job_dir = launch_root / "jobs" / job_name
     return job_dir, True
 
 

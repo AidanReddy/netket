@@ -67,6 +67,8 @@ _HIST_DTYPES = {
     "update_norm_values": np.float64,
 }
 
+_LAUNCH_ROOT = Path(__file__).resolve().parent.parent / "results" / "haldane" / "psiformer"
+
 
 def _env_int(key: str, default: int) -> int:
     # Written with Codex 03-02-26.
@@ -289,10 +291,11 @@ def _save_fig(fig, path: Path, dpi: int = 180) -> None:
 
 
 def _resolve_job_dir(script_dir: Path, job_name: str) -> tuple[Path, bool]:
-    # Written with Codex 03-02-26.
+    # Written with Codex 03-05-26.
     if (script_dir / "raw_data").exists():
         return script_dir, False
-    return script_dir / "jobs" / job_name, True
+    launch_root = _LAUNCH_ROOT if script_dir.name == "scripts" else script_dir
+    return launch_root / "jobs" / job_name, True
 
 
 def main() -> None:
@@ -304,10 +307,10 @@ def main() -> None:
         raise RuntimeError(f"Expected GPU backend, got {backend!r}.")
 
     scm_str = os.environ.get("SUPERCELL_MATRIX", "")
-    supercell_matrix = _parse_supercell_matrix(scm_str) if scm_str else np.array([[3, 0], [0, 3]], dtype=np.int64)
+    supercell_matrix = _parse_supercell_matrix(scm_str) if scm_str else np.array([[4, 0], [0, 3]], dtype=np.int64)
     lx, ly = _diagonal_shape_from_supercell(supercell_matrix)
-    n_fermions = _env_int("N_FERMIONS", 3)
-    V1 = _env_float("V1", 10.0)
+    n_fermions = _env_int("N_FERMIONS", 4)
+    V1 = _env_float("V1", 1.0)
     t1 = _env_float("T1", 1.0)
     phi = _env_float("PHI", 0.65)
     t2 = _env_float("T2", -1.0 / (4.0 * math.cos(phi)))
@@ -316,11 +319,11 @@ def main() -> None:
     sample_type = _env_str("SAMPLE_TYPE", "FullSum")
     n_iter = _env_int("N_ITER", 2_000)
     n_samples = _env_int("N_SAMPLES", 1024 * 4)
-    n_discard_per_chain = _env_int("N_DISCARD_PER_CHAIN", 8)
+    n_discard_per_chain = _env_int("N_DISCARD_PER_CHAIN", 4)
     sweep_size = _env_int("SWEEP_SIZE", 2 * n_fermions)
-    n_chains = _env_int("N_CHAINS", 512)
+    n_chains = _env_int("N_CHAINS", 1024)
     learning_rate = _env_float("LEARNING_RATE", 0.05)
-    diag_shift = _env_float("DIAG_SHIFT", 0.01)
+    diag_shift = _env_float("DIAG_SHIFT", 0.001)
     obs_n_samples = _env_int("OBS_N_SAMPLES", 10 * n_samples)
     obs_n_discard_per_chain = _env_int("OBS_N_DISCARD_PER_CHAIN", max(64, n_discard_per_chain))
 
