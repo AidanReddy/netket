@@ -48,6 +48,45 @@ class ManyBodyOperatorData:
     numba_compact: ManyBodyOperatorDataNumbaCompact | None = None
 
 
+def _next_power_of_two(value: int) -> int:
+    # Written with Codex 03-14-26.
+    if value <= 1:
+        return 1
+    return 1 << (int(value - 1).bit_length())
+
+
+def _state_lookup_table_size(n_states: int) -> int:
+    # Written with Codex 03-14-26.
+    # Keep the open-addressing table below about 70% load for fast probes.
+    min_slots = max(2, (10 * int(n_states) + 6) // 7)
+    return _next_power_of_two(min_slots)
+
+
+def _build_state_lookup_arrays(states: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    # Written with Codex 03-14-26.
+    states_arr = np.asarray(states, dtype=np.int64)
+    n_states = int(states_arr.size)
+    table_size = _state_lookup_table_size(n_states)
+    keys = np.full(table_size, -1, dtype=np.int64)
+    values = np.full(table_size, -1, dtype=np.int64)
+    mask = table_size - 1
+
+    for idx, state in enumerate(states_arr):
+        mixed = int(np.uint64(np.int64(state)))
+        mixed ^= mixed >> 33
+        mixed = (mixed * 0xFF51AFD7ED558CCD) & 0xFFFFFFFFFFFFFFFF
+        mixed ^= mixed >> 33
+        mixed = (mixed * 0xC4CEB9FE1A85EC53) & 0xFFFFFFFFFFFFFFFF
+        mixed ^= mixed >> 33
+        slot = int(mixed & mask)
+        while values[slot] != -1:
+            slot = (slot + 1) & mask
+        keys[slot] = np.int64(state)
+        values[slot] = np.int64(idx)
+
+    return keys, values
+
+
 
 def _build_occupied_matrix(states: np.ndarray, n_particles: int) -> np.ndarray:
     # Written with Codex 02-21-26.
@@ -192,10 +231,51 @@ if _NUMBA_AVAILABLE:
                 hi = mid - np.int64(1)
         return np.int64(-1)
 
+    @nb.njit(cache=True, inline="always")
+    def _numba_hash_mix(target: np.int64) -> np.uint64:
+        # Written with Codex 03-14-26.
+        value = np.uint64(target)
+        value ^= value >> np.uint64(33)
+        value *= np.uint64(0xFF51AFD7ED558CCD)
+        value ^= value >> np.uint64(33)
+        value *= np.uint64(0xC4CEB9FE1A85EC53)
+        value ^= value >> np.uint64(33)
+        return value
+
+    @nb.njit(cache=True, inline="always")
+    def _numba_lookup_state_index(
+        lookup_keys: np.ndarray,
+        lookup_values: np.ndarray,
+        target: np.int64,
+    ) -> np.int64:
+        # Written with Codex 03-14-26.
+        table_size = np.int64(lookup_keys.shape[0])
+        slot = np.int64(_numba_hash_mix(target) % np.uint64(table_size))
+        while True:
+            value = lookup_values[slot]
+            if value == -1:
+                return np.int64(-1)
+            if lookup_keys[slot] == target:
+                return np.int64(value)
+            slot += 1
+            if slot == table_size:
+                slot = np.int64(0)
+
+    @nb.njit(cache=True, inline="always")
+    def _numba_bit_index(bit: int) -> int:
+        # Written with Codex 03-14-26.
+        idx = 0
+        value = bit
+        while value > 1:
+            value >>= 1
+            idx += 1
+        return idx
+
     @nb.njit(cache=True)
     def _assemble_dense_hamiltonian_numba(
         states: np.ndarray,
-        occupied: np.ndarray,
+        lookup_keys: np.ndarray,
+        lookup_values: np.ndarray,
         orbital_bits: np.ndarray,
         lower_masks: np.ndarray,
         one_offsets: np.ndarray,
@@ -213,22 +293,28 @@ if _NUMBA_AVAILABLE:
     ) -> np.ndarray:
         # Written with Codex 02-21-26.
         dim = int(states.shape[0])
-        n_particles = int(occupied.shape[1])
+        n_particles = _numba_popcount(int(states[0])) if dim > 0 else 0
         h_dense = np.zeros((dim, dim), dtype=np.complex128)
+        occ_orbs = np.empty(n_particles, dtype=np.int64)
         ann_states = np.empty(n_particles, dtype=np.int64)
         ann_signs = np.empty(n_particles, dtype=np.int64)
 
         for col in range(dim):
             state = int(states[col])
-            for occ_idx in range(n_particles):
-                orb = int(occupied[col, occ_idx])
-                bit = int(orbital_bits[orb])
-                ann_states[occ_idx] = state ^ bit
+            bits = state
+            occ_count = 0
+            while bits != 0:
+                bit = bits & -bits
+                orb = _numba_bit_index(bit)
+                occ_orbs[occ_count] = orb
+                ann_states[occ_count] = state ^ bit
                 parity = _numba_popcount(state & int(lower_masks[orb])) & 1
-                ann_signs[occ_idx] = -1 if parity == 1 else 1
+                ann_signs[occ_count] = -1 if parity == 1 else 1
+                bits ^= bit
+                occ_count += 1
 
-            for occ_idx in range(n_particles):
-                b = int(occupied[col, occ_idx])
+            for occ_idx in range(occ_count):
+                b = int(occ_orbs[occ_idx])
                 state_b = int(ann_states[occ_idx])
                 sign_b = int(ann_signs[occ_idx])
                 start = int(one_offsets[b])
@@ -241,7 +327,13 @@ if _NUMBA_AVAILABLE:
                     parity_a = _numba_popcount(state_b & int(lower_masks[a])) & 1
                     sign_a = -1 if parity_a == 1 else 1
                     row_state = state_b | bit_a
-                    row = int(_numba_bsearch(states, np.int64(row_state)))
+                    row = int(
+                        _numba_lookup_state_index(
+                            lookup_keys,
+                            lookup_values,
+                            np.int64(row_state),
+                        )
+                    )
                     if row >= 0:
                         coeff = complex(
                             one_coeff_re[term_idx],
@@ -249,8 +341,8 @@ if _NUMBA_AVAILABLE:
                         )
                         h_dense[row, col] += coeff * float(sign_b * sign_a)
 
-            for occ_idx in range(n_particles):
-                c = int(occupied[col, occ_idx])
+            for occ_idx in range(occ_count):
+                c = int(occ_orbs[occ_idx])
                 state_c = int(ann_states[occ_idx])
                 sign_c = int(ann_signs[occ_idx])
                 d_start = int(d_offsets[c])
@@ -284,7 +376,13 @@ if _NUMBA_AVAILABLE:
                         parity_a = _numba_popcount(state_cdb & int(lower_masks[a])) & 1
                         sign_a = -1 if parity_a == 1 else 1
                         row_state = state_cdb | bit_a
-                        row = int(_numba_bsearch(states, np.int64(row_state)))
+                        row = int(
+                            _numba_lookup_state_index(
+                                lookup_keys,
+                                lookup_values,
+                                np.int64(row_state),
+                            )
+                        )
                         if row >= 0:
                             coeff = complex(
                                 two_coeff_re[term_idx],
@@ -299,7 +397,8 @@ if _NUMBA_AVAILABLE:
     @nb.njit(cache=True, nogil=True)
     def _count_sparse_entries_numba(
         states: np.ndarray,
-        occupied: np.ndarray,
+        lookup_keys: np.ndarray,
+        lookup_values: np.ndarray,
         orbital_bits: np.ndarray,
         one_offsets: np.ndarray,
         one_targets: np.ndarray,
@@ -315,18 +414,25 @@ if _NUMBA_AVAILABLE:
         # Signs and coefficients are irrelevant for counting; only structural
         # connectivity (which operator applications land in the basis) matters.
         dim = int(states.shape[0])
-        n_particles = int(occupied.shape[1])
+        n_particles = _numba_popcount(int(states[0])) if dim > 0 else 0
         count = 0
+        occ_orbs = np.empty(n_particles, dtype=np.int64)
         ann_states = np.empty(n_particles, dtype=np.int64)
 
         for col in range(dim):
             state = int(states[col])
-            for occ_idx in range(n_particles):
-                orb = int(occupied[col, occ_idx])
-                ann_states[occ_idx] = state ^ int(orbital_bits[orb])
+            bits = state
+            occ_count = 0
+            while bits != 0:
+                bit = bits & -bits
+                orb = _numba_bit_index(bit)
+                occ_orbs[occ_count] = orb
+                ann_states[occ_count] = state ^ bit
+                bits ^= bit
+                occ_count += 1
 
-            for occ_idx in range(n_particles):
-                b = int(occupied[col, occ_idx])
+            for occ_idx in range(occ_count):
+                b = int(occ_orbs[occ_idx])
                 state_b = int(ann_states[occ_idx])
                 start = int(one_offsets[b])
                 end = int(one_offsets[b + 1])
@@ -335,11 +441,18 @@ if _NUMBA_AVAILABLE:
                     bit_a = int(orbital_bits[a])
                     if (state_b & bit_a) != 0:
                         continue
-                    if _numba_bsearch(states, np.int64(state_b | bit_a)) >= 0:
+                    if (
+                        _numba_lookup_state_index(
+                            lookup_keys,
+                            lookup_values,
+                            np.int64(state_b | bit_a),
+                        )
+                        >= 0
+                    ):
                         count += 1
 
-            for occ_idx in range(n_particles):
-                c = int(occupied[col, occ_idx])
+            for occ_idx in range(occ_count):
+                c = int(occ_orbs[occ_idx])
                 state_c = int(ann_states[occ_idx])
                 d_start = int(d_offsets[c])
                 d_end = int(d_offsets[c + 1])
@@ -362,7 +475,14 @@ if _NUMBA_AVAILABLE:
                         bit_a = int(orbital_bits[a])
                         if (state_cdb & bit_a) != 0:
                             continue
-                        if _numba_bsearch(states, np.int64(state_cdb | bit_a)) >= 0:
+                        if (
+                            _numba_lookup_state_index(
+                                lookup_keys,
+                                lookup_values,
+                                np.int64(state_cdb | bit_a),
+                            )
+                            >= 0
+                        ):
                             count += 1
 
         return count
@@ -374,7 +494,8 @@ if _NUMBA_AVAILABLE:
         data_re_out: np.ndarray,
         data_im_out: np.ndarray,
         states: np.ndarray,
-        occupied: np.ndarray,
+        lookup_keys: np.ndarray,
+        lookup_values: np.ndarray,
         orbital_bits: np.ndarray,
         lower_masks: np.ndarray,
         one_offsets: np.ndarray,
@@ -395,22 +516,28 @@ if _NUMBA_AVAILABLE:
         # them automatically on COO -> CSR conversion (e.g. diagonal terms
         # contributed by multiple one-body or two-body paths).
         dim = int(states.shape[0])
-        n_particles = int(occupied.shape[1])
+        n_particles = _numba_popcount(int(states[0])) if dim > 0 else 0
         ptr = 0
+        occ_orbs = np.empty(n_particles, dtype=np.int64)
         ann_states = np.empty(n_particles, dtype=np.int64)
         ann_signs = np.empty(n_particles, dtype=np.int64)
 
         for col in range(dim):
             state = int(states[col])
-            for occ_idx in range(n_particles):
-                orb = int(occupied[col, occ_idx])
-                bit = int(orbital_bits[orb])
-                ann_states[occ_idx] = state ^ bit
+            bits = state
+            occ_count = 0
+            while bits != 0:
+                bit = bits & -bits
+                orb = _numba_bit_index(bit)
+                occ_orbs[occ_count] = orb
+                ann_states[occ_count] = state ^ bit
                 parity = _numba_popcount(state & int(lower_masks[orb])) & 1
-                ann_signs[occ_idx] = -1 if parity == 1 else 1
+                ann_signs[occ_count] = -1 if parity == 1 else 1
+                bits ^= bit
+                occ_count += 1
 
-            for occ_idx in range(n_particles):
-                b = int(occupied[col, occ_idx])
+            for occ_idx in range(occ_count):
+                b = int(occ_orbs[occ_idx])
                 state_b = int(ann_states[occ_idx])
                 sign_b = int(ann_signs[occ_idx])
                 start = int(one_offsets[b])
@@ -423,7 +550,13 @@ if _NUMBA_AVAILABLE:
                     parity_a = _numba_popcount(state_b & int(lower_masks[a])) & 1
                     sign_a = -1 if parity_a == 1 else 1
                     row_state = state_b | bit_a
-                    row = int(_numba_bsearch(states, np.int64(row_state)))
+                    row = int(
+                        _numba_lookup_state_index(
+                            lookup_keys,
+                            lookup_values,
+                            np.int64(row_state),
+                        )
+                    )
                     if row >= 0:
                         total_sign = float(sign_b * sign_a)
                         row_out[ptr] = row
@@ -432,8 +565,8 @@ if _NUMBA_AVAILABLE:
                         data_im_out[ptr] = one_coeff_im[term_idx] * total_sign
                         ptr += 1
 
-            for occ_idx in range(n_particles):
-                c = int(occupied[col, occ_idx])
+            for occ_idx in range(occ_count):
+                c = int(occ_orbs[occ_idx])
                 state_c = int(ann_states[occ_idx])
                 sign_c = int(ann_signs[occ_idx])
                 d_start = int(d_offsets[c])
@@ -467,7 +600,13 @@ if _NUMBA_AVAILABLE:
                         parity_a = _numba_popcount(state_cdb & int(lower_masks[a])) & 1
                         sign_a = -1 if parity_a == 1 else 1
                         row_state = state_cdb | bit_a
-                        row = int(_numba_bsearch(states, np.int64(row_state)))
+                        row = int(
+                            _numba_lookup_state_index(
+                                lookup_keys,
+                                lookup_values,
+                                np.int64(row_state),
+                            )
+                        )
                         if row >= 0:
                             total_sign = float(sign_cd * sign_b * sign_a)
                             row_out[ptr] = row
@@ -505,12 +644,13 @@ def _build_many_body_hamiltonian_dense_numba(
     if compact is None:
         return None
 
-    occupied = _build_occupied_matrix(states=states, n_particles=basis.n_particles)
+    lookup_keys, lookup_values = _build_state_lookup_arrays(states)
     orbital_bits = np.asarray([1 << orb for orb in range(n_orb)], dtype=np.int64)
     lower_masks = orbital_bits - np.int64(1)
     return _assemble_dense_hamiltonian_numba(
         states=states,
-        occupied=occupied,
+        lookup_keys=lookup_keys,
+        lookup_values=lookup_values,
         orbital_bits=orbital_bits,
         lower_masks=lower_masks,
         one_offsets=compact.one_offsets,
@@ -548,14 +688,15 @@ def _build_many_body_hamiltonian_sparse_numba(
     if dim == 0:
         return sp.csr_matrix((0, 0), dtype=np.complex128)
 
-    occupied = _build_occupied_matrix(states=states, n_particles=basis.n_particles)
+    lookup_keys, lookup_values = _build_state_lookup_arrays(states)
     orbital_bits = np.asarray([1 << orb for orb in range(n_orb)], dtype=np.int64)
     lower_masks = orbital_bits - np.int64(1)
 
     nnz = int(
         _count_sparse_entries_numba(
             states,
-            occupied,
+            lookup_keys,
+            lookup_values,
             orbital_bits,
             compact.one_offsets,
             compact.one_targets,
@@ -579,7 +720,8 @@ def _build_many_body_hamiltonian_sparse_numba(
         data_re,
         data_im,
         states,
-        occupied,
+        lookup_keys,
+        lookup_values,
         orbital_bits,
         lower_masks,
         compact.one_offsets,
@@ -714,6 +856,7 @@ def build_fock_basis(
     orbital_momenta: np.ndarray | None = None,
     lattice_shape: tuple[int, int] | None = None,
     momentum_sector: tuple[int, int] | None = None,
+    build_state_index: bool = True,
 ) -> ManyBodyBasis:
     # Written with Codex 02-19-26.
     if n_orbitals < 0:
@@ -761,7 +904,11 @@ def build_fock_basis(
 
     # Sort by state value so Numba kernels can use binary search for O(log dim) lookup.
     states = np.sort(np.asarray(states, dtype=np.int64))
-    state_index = {int(state): idx for idx, state in enumerate(states)}
+    state_index = (
+        {int(state): idx for idx, state in enumerate(states)}
+        if bool(build_state_index)
+        else None
+    )
     sector = (target_kx, target_ky) if use_momentum else None
     return ManyBodyBasis(
         n_orbitals=int(n_orbitals),
@@ -770,6 +917,61 @@ def build_fock_basis(
         state_index=state_index,
         momentum_sector=sector,
     )
+
+
+def build_all_momentum_sector_bases(
+    n_orbitals: int,
+    n_particles: int,
+    orbital_momenta: np.ndarray,
+    lattice_shape: tuple[int, int],
+    build_state_index: bool = False,
+) -> dict[tuple[int, int], ManyBodyBasis]:
+    # Written with Codex 03-14-26.
+    if orbital_momenta.shape != (n_orbitals, 2):
+        raise ValueError(
+            "orbital_momenta must have shape "
+            f"({n_orbitals}, 2), got {orbital_momenta.shape}."
+        )
+
+    Lx = int(lattice_shape[0])
+    Ly = int(lattice_shape[1])
+    sector_states = _get_or_build_momentum_sector_state_lists(
+        n_orbitals=int(n_orbitals),
+        n_particles=int(n_particles),
+        orbital_momenta=np.asarray(orbital_momenta, dtype=np.int64),
+        lattice_shape=(Lx, Ly),
+    )
+
+    out: dict[tuple[int, int], ManyBodyBasis] = {}
+    for kx in range(Lx):
+        for ky in range(Ly):
+            sector = (int(kx), int(ky))
+            states = np.sort(
+                np.asarray(
+                    sector_states.get(sector, np.asarray([], dtype=np.int64)),
+                    dtype=np.int64,
+                )
+            )
+            out[sector] = ManyBodyBasis(
+                n_orbitals=int(n_orbitals),
+                n_particles=int(n_particles),
+                states=states,
+                state_index=(
+                    {int(state): idx for idx, state in enumerate(states)}
+                    if bool(build_state_index)
+                    else None
+                ),
+                momentum_sector=sector,
+            )
+    return out
+
+
+def _searchsorted_state_index(states: np.ndarray, target: int) -> int | None:
+    # Written with Codex 03-14-26.
+    idx = int(np.searchsorted(states, np.int64(target), side="left"))
+    if idx >= int(states.size) or int(states[idx]) != int(target):
+        return None
+    return idx
 
 
 def _group_one_body_terms(
@@ -876,6 +1078,78 @@ def prepare_many_body_operator_data(
     )
 
 
+def _ensure_many_body_operator_data(
+    one_body: np.ndarray,
+    two_body: np.ndarray,
+    cutoff: float,
+    operator_data: ManyBodyOperatorData | None,
+    prefer_numba_compact: bool = True,
+) -> ManyBodyOperatorData:
+    # Written with Codex 03-14-26.
+    one_body_arr = np.asarray(one_body, dtype=np.complex128)
+    two_body_arr = np.asarray(two_body, dtype=np.complex128)
+
+    if one_body_arr.ndim != 2 or one_body_arr.shape[0] != one_body_arr.shape[1]:
+        raise ValueError("one_body must have shape (M, M).")
+    n_orb = int(one_body_arr.shape[0])
+    if two_body_arr.shape != (n_orb, n_orb, n_orb, n_orb):
+        raise ValueError(
+            "two_body must have shape "
+            f"({n_orb}, {n_orb}, {n_orb}, {n_orb}), got {two_body_arr.shape}."
+        )
+
+    if operator_data is None:
+        return prepare_many_body_operator_data(
+            one_body=one_body_arr,
+            two_body=two_body_arr,
+            cutoff=cutoff,
+            build_numba_compact=bool(prefer_numba_compact and _NUMBA_AVAILABLE),
+        )
+
+    if (
+        not prefer_numba_compact
+        or not _NUMBA_AVAILABLE
+        or operator_data.numba_compact is not None
+    ):
+        return operator_data
+
+    one_offsets, one_targets, one_coeff_re, one_coeff_im = _build_one_body_compact_arrays(
+        one_grouped=operator_data.one_grouped,
+        n_orbitals=n_orb,
+    )
+    (
+        d_offsets,
+        d_values,
+        pair_offsets,
+        two_create_a,
+        two_create_b,
+        two_coeff_re,
+        two_coeff_im,
+    ) = _build_two_body_compact_arrays(
+        two_grouped=operator_data.two_grouped,
+        two_targets_by_c=operator_data.two_targets_by_c,
+        n_orbitals=n_orb,
+    )
+    return ManyBodyOperatorData(
+        one_grouped=operator_data.one_grouped,
+        two_grouped=operator_data.two_grouped,
+        two_targets_by_c=operator_data.two_targets_by_c,
+        numba_compact=ManyBodyOperatorDataNumbaCompact(
+            one_offsets=one_offsets,
+            one_targets=one_targets,
+            one_coeff_re=one_coeff_re,
+            one_coeff_im=one_coeff_im,
+            d_offsets=d_offsets,
+            d_values=d_values,
+            pair_offsets=pair_offsets,
+            two_create_a=two_create_a,
+            two_create_b=two_create_b,
+            two_coeff_re=two_coeff_re,
+            two_coeff_im=two_coeff_im,
+        ),
+    )
+
+
 def _accumulate_many_body_entries(
     one_body: np.ndarray,
     two_body: np.ndarray,
@@ -906,7 +1180,18 @@ def _accumulate_many_body_entries(
     two_targets_by_c = operator_data.two_targets_by_c
 
     entries: dict[tuple[int, int], np.complex128] = defaultdict(np.complex128)
-    state_index_get = basis.state_index.get
+    states_arr = np.asarray(basis.states, dtype=np.int64)
+    if basis.state_index is None:
+        def state_lookup(target: int) -> int | None:
+            # Written with Codex 03-14-26.
+            return _searchsorted_state_index(states_arr, target)
+    else:
+        state_index_get = basis.state_index.get
+
+        def state_lookup(target: int) -> int | None:
+            # Written with Codex 03-14-26.
+            return state_index_get(target)
+
     one_grouped_get = one_grouped.get
     two_grouped_get = two_grouped.get
     two_targets_by_c_get = two_targets_by_c.get
@@ -939,7 +1224,7 @@ def _accumulate_many_body_entries(
                 parity_a = (state_b & lower_masks[a]).bit_count() & 1
                 sign_a = -1 if parity_a else 1
                 state_ab = state_b | bit_a
-                row = state_index_get(state_ab)
+                row = state_lookup(state_ab)
                 if row is not None:
                     entries[(row, col)] += coeff * sign_b * sign_a
 
@@ -978,7 +1263,7 @@ def _accumulate_many_body_entries(
                     sign_a = -1 if parity_a else 1
                     state_final = state_cdb | bit_a
 
-                    row = state_index_get(state_final)
+                    row = state_lookup(state_final)
                     if row is not None:
                         entries[(row, col)] += coeff * sign_cd * sign_b * sign_a
 
@@ -1009,15 +1294,21 @@ def build_many_body_hamiltonian_sparse(
     operator_data: ManyBodyOperatorData | None = None,
 ) -> sp.csr_matrix:
     # Written with Codex 02-19-26.
-    if operator_data is not None:
-        h_numba = _build_many_body_hamiltonian_sparse_numba(
-            basis=basis,
-            operator_data=operator_data,
-        )
-        if h_numba is not None:
-            if hermitize:
-                h_numba = 0.5 * (h_numba + h_numba.getH())
-            return h_numba
+    operator_data = _ensure_many_body_operator_data(
+        one_body=one_body,
+        two_body=two_body,
+        cutoff=cutoff,
+        operator_data=operator_data,
+        prefer_numba_compact=True,
+    )
+    h_numba = _build_many_body_hamiltonian_sparse_numba(
+        basis=basis,
+        operator_data=operator_data,
+    )
+    if h_numba is not None:
+        if hermitize:
+            h_numba = 0.5 * (h_numba + h_numba.getH())
+        return h_numba
 
     rows, cols, data = _accumulate_many_body_entries(
         one_body=one_body,
@@ -1042,8 +1333,14 @@ def build_many_body_hamiltonian_dense(
     operator_data: ManyBodyOperatorData | None = None,
 ) -> np.ndarray:
     # Written with Codex 02-19-26.
-    operator_data_provided = operator_data is not None
     n_orb = int(basis.n_orbitals)
+    operator_data = _ensure_many_body_operator_data(
+        one_body=one_body,
+        two_body=two_body,
+        cutoff=cutoff,
+        operator_data=operator_data,
+        prefer_numba_compact=True,
+    )
     if one_body.shape != (n_orb, n_orb):
         raise ValueError(
             f"one_body must have shape ({n_orb}, {n_orb}), got {one_body.shape}."
@@ -1054,21 +1351,9 @@ def build_many_body_hamiltonian_dense(
             f"({n_orb}, {n_orb}, {n_orb}, {n_orb}), got {two_body.shape}."
         )
 
-    if operator_data is None:
-        operator_data = prepare_many_body_operator_data(
-            one_body=one_body,
-            two_body=two_body,
-            cutoff=cutoff,
-        )
-
-    # Numba is most beneficial when operator_data (and its compact cache) is reused.
-    h_dense_numba = (
-        _build_many_body_hamiltonian_dense_numba(
-            basis=basis,
-            operator_data=operator_data,
-        )
-        if operator_data_provided
-        else None
+    h_dense_numba = _build_many_body_hamiltonian_dense_numba(
+        basis=basis,
+        operator_data=operator_data,
     )
     if h_dense_numba is not None:
         h_dense = h_dense_numba

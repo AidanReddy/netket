@@ -70,5 +70,5 @@ class ManyBodyBasis:
     n_orbitals: int
     n_particles: int
     states: list[int]
-    state_index: dict[int, int]
+    state_index: dict[int, int] | None
     momentum_sector: tuple[int, int] | None
